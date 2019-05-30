@@ -3,7 +3,7 @@ CHANGES
 =======
 
 
-1.0.3 (unreleased)
+1.0.3 (2019-05-30)
 ------------------
 
 - Moved documentation to Read the Docs.
