@@ -6,13 +6,18 @@ CHANGES
 1.0.3 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Moved documentation to Read the Docs.
 
 
 1.0.2 (2019-05-30)
 ------------------
 
 - Add some readable documentation.
+
+- Added high-level `shoobx.immutable.update(im, *args, **kw)` function.
+
+- Implemented `__repr__()` for `ImmutableSet` to mimic behavior of
+  `ImmutableDict` and `ImmutableList`.
 
 
 1.0.1 (2019-05-30)
