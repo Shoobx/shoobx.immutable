@@ -3,6 +3,8 @@
 coverage.xml
 dist/
 env/
+src/*.egg-info
 ve/
 
 *.pyc
+

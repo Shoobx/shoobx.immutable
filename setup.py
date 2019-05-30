@@ -36,7 +36,8 @@ def alltests():
 
 TESTS_REQUIRE = [
     'coverage',
-    'pjpersist',
+    'mock',
+    'pjpersist[test]',
     'zope.testrunner',
     ]
 
@@ -75,7 +76,9 @@ setup (
     ),
     install_requires=[
         'setuptools',
+        'zope.component',
         'zope.interface',
+        'zope.lifecycleevent',
         'zope.schema',
     ],
     tests_require=TESTS_REQUIRE,
