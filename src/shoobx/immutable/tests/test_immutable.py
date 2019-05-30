@@ -740,6 +740,10 @@ class ImmutableSetTest(unittest.TestCase):
         im_set = immutable.ImmutableSet({42})
         self.assertEqual(len(im_set), 1)
 
+    def test_repr(self):
+        set = immutable.ImmutableSet({42})
+        self.assertEqual(repr(set), '{42}')
+
 
 class ImmutableListTest(unittest.TestCase):
 

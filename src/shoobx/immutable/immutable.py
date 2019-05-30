@@ -321,6 +321,9 @@ class ImmutableSet(ImmutableBase, collections.abc.MutableSet):
     def __hash__(self):
         return frozenset(self.__data__).__hash__()
 
+    def __repr__(self):
+        return repr(self.__data__)
+
 
 @zope.interface.implementer(interfaces.IImmutable)
 class ImmutableList(ImmutableBase, collections.UserList):
