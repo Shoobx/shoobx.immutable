@@ -3,7 +3,7 @@ CHANGES
 =======
 
 
-0.1.0 (unreleased)
+1.0.0 (2019-05-30)
 ------------------
 
 - Immutable Types, Immutable Dict, Immutable Set, Immutable List
