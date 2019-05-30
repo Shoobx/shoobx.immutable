@@ -1,0 +1,4 @@
+[run]
+include = */shoobx/immutable/*
+omit = */test*
+

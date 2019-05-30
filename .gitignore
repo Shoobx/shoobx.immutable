@@ -1,0 +1,8 @@
+.coverage
+.tox
+coverage.xml
+dist/
+env/
+ve/
+
+*.pyc
