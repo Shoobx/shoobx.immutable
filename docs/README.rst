@@ -1,6 +1,6 @@
-=============
-Documentation
-=============
+=================
+Using Inmmutables
+=================
 
 Immutable objects can make certain complex systems more reasonable, because they
 tightly control when an object is modified and how. It also guarantees that an

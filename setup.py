@@ -50,7 +50,7 @@ setup (
     long_description=(
         read('README.rst')
         + '\n\n' +
-        read('src', 'shoobx', 'immutable', 'README.rst')
+        read('docs', 'README.rst')
         + '\n\n' +
         read('CHANGES.rst')
         ),
@@ -71,10 +71,14 @@ setup (
     package_dir={'':'src'},
     namespace_packages=['shoobx'],
     extras_require=dict(
-        test=TESTS_REQUIRE,
+        docs=[
+            'Sphinx',
+            'repoze.sphinx.autointerface'
+        ],
         pjpersist=[
             'pjpersist',
-        ]
+        ],
+        test=TESTS_REQUIRE,
     ),
     install_requires=[
         'setuptools',
