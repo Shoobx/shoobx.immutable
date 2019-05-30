@@ -40,21 +40,6 @@ SET_TYPES = (
 )
 
 
-class ImmutableConversionError(Exception):
-    """Mutable object could not be converted to an Immutable one."""
-
-    def __init__(self, obj):
-        self.object = obj
-        super(ImmutableConversionError, self).__init__(obj)
-
-
-class RevisionInsertionError(Exception):
-
-    def __init__(self, revision):
-        self.revision = revision
-        super(RevisionInsertionError, self).__init__(revision)
-
-
 class IImmutable(zope.interface.Interface):
     """Immutable Object
 
@@ -108,7 +93,7 @@ class IImmutable(zope.interface.Interface):
     ..[1] During initialization all class attributes are checked to be
           immutable or are converted to immutables. On assignment, any mutable
           object is converted into an immutable object. If convertsion to an
-          immutable object fails, `ImmutableConversionError` is raised.
+          immutable object fails, a `ValueError` error is raised.
 
     Conversion of mutable to immutable objects:
 
