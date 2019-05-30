@@ -6,7 +6,7 @@ CHANGES
 1.0.2 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Add some readable documentation.
 
 
 1.0.1 (2019-05-30)

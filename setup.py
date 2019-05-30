@@ -50,6 +50,8 @@ setup (
     long_description=(
         read('README.rst')
         + '\n\n' +
+        read('src', 'shoobx', 'immutable', 'README.rst')
+        + '\n\n' +
         read('CHANGES.rst')
         ),
     license="ZPL 2.1",
