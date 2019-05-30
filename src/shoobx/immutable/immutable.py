@@ -13,6 +13,10 @@ from contextlib import contextmanager
 from shoobx.immutable import interfaces
 
 
+def update(im, *args, **kw):
+    return im.__im_update__(*args, **kw)
+
+
 def failOnNonTransient(func):
     """Only allow function execution when immutable is transient."""
 

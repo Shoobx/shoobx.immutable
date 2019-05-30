@@ -14,6 +14,12 @@ from shoobx.immutable import immutable, interfaces
 
 class ImmutableHelpersTest(unittest.TestCase):
 
+    def test_update(self):
+        im = immutable.ImmutableBase()
+        with immutable.update(im) as im2:
+            im2.answer = 42
+        self.assertIsNot(im, im2)
+
     def test_failOnNonTransient(self):
         func = mock.Mock()
         wrapper = immutable.failOnNonTransient(func)
