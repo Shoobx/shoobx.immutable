@@ -7,7 +7,7 @@ tightly control when an object is modified and how. It also guarantees that an
 object can never change for another accessor in a different subsystem.
 
 Introduction
-============
+------------
 
 Let's start with a simple dictionary:
 
@@ -93,7 +93,7 @@ Immutable sets are also supported as a core immutable:
 
 
 Custom Immutables
-=================
+-----------------
 
 Creating your own immutable objects is simple:
 
@@ -126,7 +126,7 @@ Of course you cannot modify an immutable other than the update context:
 
 
 Revisioned Immutables
-=====================
+---------------------
 
 Since mutables create a new object for every change, they are ideal for
 creating systems that have to keep track of their entire history. This package
@@ -222,7 +222,7 @@ We can even roll back to a previous revision:
 
 
 Optional `pjpersist` Support
-============================
+----------------------------
 
 A more serious and production-ready implementation of the revision manager API
 is provided in `shoobx.immutable.pjpersist` which utilizes `pjpersist` to
@@ -230,7 +230,7 @@ store all data.
 
 
 Notes
-=====
+-----
 
 A technical discussion on the system's inner workings is located in the
 doc strings of the corresponding interfaces. In addition, the tests covera a
