@@ -46,7 +46,7 @@ setup (
     version='1.0.1.dev0',
     author="Shoobx, Inc.",
     author_email="dev@shoobx.com",
-    description="A converter from RML to ODT.",
+    description="Immutable Types",
     long_description=(
         read('README.rst')
         + '\n\n' +

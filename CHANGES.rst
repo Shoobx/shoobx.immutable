@@ -6,7 +6,7 @@ CHANGES
 1.0.1 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Fix package description.
 
 
 1.0.0 (2019-05-30)
