@@ -232,16 +232,16 @@ class IRevisionedImmutableManager(zope.interface.Interface):
     def addRevision(new, old=None):
         """Add a new revision.
 
-        This method should be implemented to allow a simple append opperation
+        This method should be implemented to allow a simple append operation
         to the revision history.
 
         It must assign the `__im_start_on__` attribute of the `new` revision
         to the current date/time. Also, the `__im_manager__` attribute will be
-        set to this `IRevisionedImmutableManager` instance. It is assume and
+        set to this `IRevisionedImmutableManager` instance. It is assumed and
         may be asserted that the `new` revision is already locked.
 
         If the `old` revision is `None`, then a new revision history will be
-        created a nd the `new` revision is the origin revision.
+        created and the `new` revision is the origin revision.
 
         If the `old` revision is specified, the old revision's `__im_end_on__`
         date/time is set to the `new` revision's `__im_start_on__` date/time

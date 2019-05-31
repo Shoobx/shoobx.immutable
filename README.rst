@@ -22,7 +22,7 @@ This library provides a state-based implementation of immutable types,
 including lists, sets and dicts. It handles an arbitrarily deep structure of
 nested objects.
 
-In addition, support for revisioed immutables is provided, which allows for
+In addition, support for revisioned immutables is provided, which allows for
 full revision histories of an immutable. A sample implementation of a
 revisioned immutable maanger is also provided.
 
