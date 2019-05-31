@@ -6,7 +6,7 @@ CHANGES
 1.0.5 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Minor fixes, docs added, test hook added.
 
 
 1.0.4 (2019-05-30)
