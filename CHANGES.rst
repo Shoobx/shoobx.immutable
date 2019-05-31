@@ -3,16 +3,36 @@ CHANGES
 =======
 
 
-1.0.6 (unreleased)
+1.1.0 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Introduced `__im_version__` to `IRevisionedImmutable` and use it instead of
+  timestamps to create a chronological order of revisions. (Timestamps might be
+  slightly different accross servers and cause bad history.)
+
+- Do not duplicate implementation of `__im_update__()` in
+  `RevisionedImmutableBase`. Use `__im_[before|after]_update__()` to do all
+  revision-related tasks.
+
+- Tweak `copy()` implementation for `ImmutableList` and `ImmutableDict`.
+
+- Properly implement `ImmutableDict.fromkeys()`.
 
 
 1.0.5 (2019-05-31)
 ------------------
 
-- Minor fixes, docs added, test hook added.
+- Fix `ImmutableList.copy()` to just work when locked. This allows for only
+  making a shallow clone, since any update will cause a deep copy and thus
+  immutability is guaranteed.
+
+- Implemented `ImmutableDict.copy()`. Raise error on `ImmutableDict.fromkeys()`.
+
+- `ImmutableContainer` also needs an updated `_pj_column_fields` list.
+
+- Minor test fixes.
+
+- Minor documentation fixes and code comment enhancements.
 
 
 1.0.4 (2019-05-30)
