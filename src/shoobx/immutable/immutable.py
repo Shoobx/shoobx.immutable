@@ -280,16 +280,19 @@ class ImmutableDict(ImmutableBase, collections.UserDict):
     def popitem(self):
         return super().popitem()
 
+    @classmethod
+    def fromkeys(cls, iterable, value=None):
+        dct = cls(im_finalize=False)
+        for key in iterable:
+            dct[key] = value
+        dct.__im_finalize__()
+        return dct
+
     def __getstate__(self):
         return self.data
 
     def __setstate__(self, state):
         self.data = state
-
-    @classmethod
-    def fromkeys(cls, iterable, value=None):
-        raise NotImplementedError(
-            "Would cause cross referenced objects, which are not supported")
 
 
 @zope.interface.implementer(interfaces.IImmutable)

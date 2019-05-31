@@ -586,6 +586,17 @@ class ImmutableDictTest(unittest.TestCase):
         with self.assertRaises(AttributeError):
             dct.popitem()
 
+    def test_fromkeys(self):
+        dct = immutable.ImmutableDict.fromkeys([41, 42], 'answer')
+        self.assertEqual(dict(dct), {41: 'answer', 42: 'answer'})
+
+    def test_fromkeys_withImmutables(self):
+        im = immutable.Immutable()
+        dct = immutable.ImmutableDict.fromkeys([41, 42], im)
+        self.assertIsNot(dct[41], im)
+        self.assertIsNot(dct[42], im)
+        self.assertIsNot(dct[41], dct[42])
+
     def test_getstate(self):
         dct = immutable.ImmutableDict(answer=42)
         self.assertDictEqual(dct.__getstate__(), {'answer': 42})
