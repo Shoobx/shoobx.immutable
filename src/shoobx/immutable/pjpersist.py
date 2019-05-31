@@ -28,6 +28,11 @@ class NoOpProperty:
         pass
 
 
+class Version(zope.schema.Int):
+    # Unfortuantely, default Int._type is a tuple.
+    _type = int
+
+
 @zope.interface.implementer(pjinterfaces.IColumnSerialization)
 class Immutable(revisioned.RevisionedImmutable, pjcontainer.PJContained):
 
@@ -36,11 +41,13 @@ class Immutable(revisioned.RevisionedImmutable, pjcontainer.PJContained):
     _p_jar = None
     _p_changed = NoOpProperty()
     _pj_name = 'name'
-    # the below fields are used to auto create the SQL table
-    # names should be in sync with ImmutableContainer._pj_column_fields
-    # can omit `id` and `data`
+
+    # The below fields are used to auto create the SQL table names.They must
+    # be in sync with `ImmutableContainer._pj_column_fields`. `id` and `data`
+    # can be omitted.
     _pj_column_fields = (
         zope.schema.TextLine(__name__=_pj_name),
+        Version(__name__='version'),
         zope.schema.Datetime(__name__='startOn'),
         zope.schema.Datetime(__name__='endOn'),
         zope.schema.TextLine(__name__='creator'),
@@ -66,6 +73,7 @@ class Immutable(revisioned.RevisionedImmutable, pjcontainer.PJContained):
     def _pj_get_column_fields(self):
         return {
             self._pj_name: getattr(self, self._pj_name),
+            'version': self.__im_version__,
             'startOn': self.__im_start_on__,
             'endOn': self.__im_end_on__,
             'creator': self.__im_creator__,
@@ -91,13 +99,13 @@ class Immutable(revisioned.RevisionedImmutable, pjcontainer.PJContained):
 class ImmutableContainer(pjcontainer.AllItemsPJContainer):
 
     _pj_mapping_key = 'name'
-    # these fields are used to figure whether to take native SQL columns
-    # instead of JSONB fields in raw_find
-    _pj_column_fields = pjcontainer.AllItemsPJContainer._pj_column_fields + (
-        _pj_mapping_key, 'startOn', 'endOn', 'creator', 'comment')
 
-    # testing hook, make sure this returns a steady increasing timestamp
-    # on each call, a static datetime does NOT cut it
+    # These fields are used to determine whether to take native SQL columns
+    # instead of JSONB fields in raw_find.
+    _pj_column_fields = pjcontainer.AllItemsPJContainer._pj_column_fields + (
+        _pj_mapping_key, 'version', 'startOn', 'endOn', 'creator', 'comment')
+
+    # Testing hook.
     now = datetime.datetime.now
 
     @property
@@ -127,7 +135,7 @@ class ImmutableContainer(pjcontainer.AllItemsPJContainer):
             super()._pj_get_resolve_filter(),
             sb.Field(self._pj_table, self._pj_mapping_key) == obj.__name__
         )
-        orderBy = sb.Field(self._pj_table, 'startOn')
+        orderBy = sb.Field(self._pj_table, 'version')
         fields = self._get_sb_fields(())
         with self._pj_jar.getCursor() as cur:
             cur.execute(
@@ -143,7 +151,7 @@ class ImmutableContainer(pjcontainer.AllItemsPJContainer):
         cur = self._pj_jar.getCursor()
         cur.execute(sb.Delete(
             self._pj_table,
-            sb.Field(self._pj_table, "startOn") >= revision.__im_end_on__
+            sb.Field(self._pj_table, "version") > revision.__im_version__
         ))
         revision.__im_state__ = interfaces.IM_STATE_LOCKED
         if activate:

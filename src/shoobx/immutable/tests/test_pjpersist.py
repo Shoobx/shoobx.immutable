@@ -107,6 +107,7 @@ class ImmutableTest(unittest.TestCase):
             im._pj_get_column_fields(),
             {
                 'name': 'question',
+                'version': 0,
                 'startOn': datetime.datetime(2019, 5, 29, 2, 0),
                 'endOn': datetime.datetime(2019, 5, 29, 3, 0),
                 'creator': 'universe',

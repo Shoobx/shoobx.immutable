@@ -26,6 +26,7 @@ class RevisionedImmutableBaseTest(unittest.TestCase):
 
     def test_init(self):
         rim = revisioned.RevisionedImmutableBase()
+        self.assertEqual(rim.__im_version__, 0)
         self.assertIsNone(rim.__im_start_on__)
         self.assertIsNone(rim.__im_end_on__)
         self.assertIsNone(rim.__im_creator__)
@@ -39,6 +40,7 @@ class RevisionedImmutableBaseTest(unittest.TestCase):
         self.assertIsNot(im, im2)
         self.assertEqual(im2.answer, 42)
         self.assertEqual(im2.__im_state__, interfaces.IM_STATE_LOCKED)
+        self.assertEqual(im2.__im_version__, 1)
         self.assertEqual(im2.__im_creator__, 'universe')
         self.assertEqual(im2.__im_comment__, 'Get answer')
 

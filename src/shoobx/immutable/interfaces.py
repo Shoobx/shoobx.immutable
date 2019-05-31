@@ -286,6 +286,15 @@ class IRevisionedImmutable(IImmutable):
         default=IM_STATE_TRANSIENT
     )
 
+    __im_version__ = zope.schema.Int(
+        title="Version",
+        description=(
+            "The version of the immutable revision. It is used to establish "
+            "chronological order."
+        ),
+        default=0,
+        required=True)
+
     __im_start_on__ = zope.schema.Datetime(
         title="Active Start Timestamp",
         description=(
