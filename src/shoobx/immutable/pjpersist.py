@@ -96,6 +96,10 @@ class ImmutableContainer(pjcontainer.AllItemsPJContainer):
     _pj_column_fields = pjcontainer.AllItemsPJContainer._pj_column_fields + (
         _pj_mapping_key, 'startOn', 'endOn', 'creator', 'comment')
 
+    # testing hook, make sure this returns a steady increasing timestamp
+    # on each call, a static datetime does NOT cut it
+    now = datetime.datetime.now
+
     @property
     def _p_pj_table(self):
         return self._pj_table
@@ -148,7 +152,7 @@ class ImmutableContainer(pjcontainer.AllItemsPJContainer):
         self._cache[revision.__name__] = revision
 
     def addRevision(self, new, old=None):
-        now = datetime.datetime.now()
+        now = self.now()
         if old is not None:
             old.__im_end_on__ = now
             old.__im_state__ = interfaces.IM_STATE_RETIRED

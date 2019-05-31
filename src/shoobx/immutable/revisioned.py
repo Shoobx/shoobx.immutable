@@ -64,6 +64,10 @@ class RevisionedImmutable(
 @zope.interface.implementer(interfaces.IRevisionedImmutableManager)
 class SimpleRevisionedImmutableManager:
 
+    # testing hook, make sure this returns a steady increasing timestamp
+    # on each call, a static datetime does NOT cut it
+    now = datetime.datetime.now
+
     def __init__(self):
         self.__data__ = []
 
@@ -78,7 +82,7 @@ class SimpleRevisionedImmutableManager:
         return self.__data__
 
     def addRevision(self, new, old=None):
-        now = datetime.datetime.now()
+        now = self.now()
         if old is not None:
             old.__im_end_on__ = now
             old.__im_state__ = interfaces.IM_STATE_RETIRED
