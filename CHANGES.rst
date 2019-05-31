@@ -3,7 +3,7 @@ CHANGES
 =======
 
 
-1.0.4 (unreleased)
+1.0.4 (2019-05-30)
 ------------------
 
 - Add API documentation.
