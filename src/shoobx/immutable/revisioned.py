@@ -16,42 +16,20 @@ from shoobx.immutable import immutable, interfaces
 @zope.interface.implementer(interfaces.IRevisionedImmutable)
 class RevisionedImmutableBase(immutable.ImmutableBase):
 
+    __im_version__ = 0
     __im_start_on__ = None
     __im_end_on__ = None
     __im_creator__ = None
     __im_comment__ = None
     __im_manager__ = None
 
-    @contextmanager
-    def __im_update__(self, creator=None, comment=None):
-        # Only a master immutable can be updated directly.
-        if self.__im_mode__ != interfaces.IM_MODE_MASTER:
-            raise AttributeError(
-                'update() is only available for master immutables.')
-
-        # If we already have a transient immutable, then just use it.
-        if self.__im_state__ == interfaces.IM_STATE_TRANSIENT:
-            yield self
-            return
-
-        # Create a transient clone of itself.
-        clone = self.__im_clone__()
-        assert clone.__im_state__ == interfaces.IM_STATE_TRANSIENT
-
+    def __im_before_update__(self, clone, creator=None, comment=None):
         # Assign the update information to the clone:
         clone.__im_creator__ = creator
         clone.__im_comment__ = comment
+        clone.__im_version__ = self.__im_version__ + 1
 
-        self.__im_before_update__(clone)
-
-        try:
-            yield clone
-        except:
-            raise
-        else:
-            self.__im_after_update__(clone)
-            clone.__im_finalize__()
-
+    def __im_after_update__(self, clone, creator=None, comment=None):
         if self.__im_manager__ is not None:
             self.__im_manager__.addRevision(clone, old=self)
 

@@ -142,7 +142,7 @@ class ImmutableBase:
         pass
 
     @contextmanager
-    def __im_update__(self):
+    def __im_update__(self, *args, **kw):
         # Only a master immutable can be updated directly.
         if self.__im_mode__ != interfaces.IM_MODE_MASTER:
             raise AttributeError(
@@ -157,15 +157,13 @@ class ImmutableBase:
         clone = self.__im_clone__()
         assert clone.__im_state__ == interfaces.IM_STATE_TRANSIENT
 
-        self.__im_before_update__(clone)
-
+        self.__im_before_update__(clone, *args, **kw)
         try:
             yield clone
         except:
             raise
-        else:
-            self.__im_after_update__(clone)
-            clone.__im_finalize__()
+        clone.__im_finalize__()
+        self.__im_after_update__(clone, *args, **kw)
 
     def __im_is_internal_attr__(self, name):
         return name.startswith('__') and name.endswith('__')
