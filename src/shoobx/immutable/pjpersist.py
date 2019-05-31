@@ -35,10 +35,12 @@ class Immutable(revisioned.RevisionedImmutable, pjcontainer.PJContained):
     _p_oid = None
     _p_jar = None
     _p_changed = NoOpProperty()
-
     _pj_name = 'name'
+    # the below fields are used to auto create the SQL table
+    # names should be in sync with ImmutableContainer._pj_column_fields
+    # can omit `id` and `data`
     _pj_column_fields = (
-        zope.schema.TextLine(__name__='name'),
+        zope.schema.TextLine(__name__=_pj_name),
         zope.schema.Datetime(__name__='startOn'),
         zope.schema.Datetime(__name__='endOn'),
         zope.schema.TextLine(__name__='creator'),
@@ -89,6 +91,10 @@ class Immutable(revisioned.RevisionedImmutable, pjcontainer.PJContained):
 class ImmutableContainer(pjcontainer.AllItemsPJContainer):
 
     _pj_mapping_key = 'name'
+    # these fields are used to figure whether to take native SQL columns
+    # instead of JSONB fields in raw_find
+    _pj_column_fields = pjcontainer.AllItemsPJContainer._pj_column_fields + (
+        _pj_mapping_key, 'startOn', 'endOn', 'creator', 'comment')
 
     @property
     def _p_pj_table(self):

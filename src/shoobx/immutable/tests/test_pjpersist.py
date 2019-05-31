@@ -145,7 +145,7 @@ class ImmutableContainerTest(unittest.TestCase):
 
     def setUp(self):
         self.conn = mock.MagicMock(
-            dsn='postgresl://lcoalhost/db')
+            dsn='postgresql://localhost/db')
         self.dm = datamanager.PJDataManager(self.conn)
         self.cont = pjpersist.ImmutableContainer()
         self.cont._p_jar = self.dm
@@ -199,6 +199,20 @@ class ImmutableDatabaseTest(testing.PJTestCase):
 
         zope.component.provideUtility(Provider())
         self.questions = Questions()
+
+    def test_raw_find(self):
+        q1 = Question('What is the answer')
+        self.questions.add(q1)
+        with q1.__im_update__(comment='Provide Answer') as q2:
+            q2.answer = 42
+        transaction.commit()
+        result = list(self.questions.raw_find(
+            fields=('id', 'name', 'data', 'comment')))
+        self.assertEqual(result[0]['data']['answer'], 42)
+        self.assertEqual(result[0]['data']['question'], 'What is the answer')
+        self.assertEqual(result[0]['comment'], 'Provide Answer')
+        self.assertEqual(
+            list(result[0].keys()), ['id', 'name', 'data', 'comment'])
 
     def test_getCurrentRevision(self):
         q = Question('What is the answer')
