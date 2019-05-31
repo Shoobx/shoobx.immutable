@@ -248,13 +248,13 @@ class ImmutableDict(ImmutableBase, collections.UserDict):
         super().__delitem__(key)
 
     def copy(self):
-        # We do not allow copy on a transient object, it just causes headaches
+        # Only allow copy in locked state, otherwise a shallow clone cannot be
+        # produced.
         assert self.__im_state__ == interfaces.IM_STATE_LOCKED
-        # Returns a SHALLOW copy
-        result = self.__class__()
-        # need to skip driving all items through __im_conform__
-        result.data = self.data
-        return result
+        # Returns a shallow copy, which allows a simple transfer of data.
+        copy = self.__class__()
+        copy.data = self.data.copy()
+        return copy
 
     @failOnNonTransient
     def clear(self):
@@ -391,13 +391,13 @@ class ImmutableList(ImmutableBase, collections.UserList):
         super().__delitem__(i)
 
     def copy(self):
-        # We do not allow copy on a transient object, it just causes headaches
+        # Only allow copy in locked state, otherwise a shallow clone cannot be
+        # produced.
         assert self.__im_state__ == interfaces.IM_STATE_LOCKED
-        # Returns a SHALLOW copy
-        result = self.__class__()
-        # need to skip driving all items through __im_conform__
-        result.data = self.data
-        return result
+        # Returns a shallow copy, which allows a simple transfer of data.
+        copy = self.__class__()
+        copy.data = self.data.copy()
+        return copy
 
     @failOnNonTransient
     def append(self, item):
