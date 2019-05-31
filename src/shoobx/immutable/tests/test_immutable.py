@@ -763,7 +763,7 @@ class ImmutableListTest(unittest.TestCase):
         self.assertEqual(lst.__im_state__, interfaces.IM_STATE_LOCKED)
 
     def test_im_is_internal_attr(self):
-        im = immutable.ImmutableDict()
+        im = immutable.ImmutableList()
         self.assertTrue(
             im.__im_is_internal_attr__('__answer__'))
         self.assertTrue(
@@ -861,34 +861,19 @@ class ImmutableListTest(unittest.TestCase):
             del im_list[0]
 
     def test_copy(self):
+        # copy works on locked objects
         im_list = immutable.ImmutableList([41, 42])
         im_list_copy = im_list.copy()
         self.assertListEqual(im_list_copy.data, [41, 42])
+
         with self.assertRaises(AttributeError):
             im_list_copy.append(42)
 
         with im_list.__im_update__() as im_list2:
-            # just setting a new variable with the copy
-            im_list3 = im_list2.copy()
-            # makes it locked, main thing is im_list3 is NOT managed by im_list2
-            self.assertEqual(
-                im_list3.__im_state__, interfaces.IM_STATE_LOCKED)
-
-            # stash the copy onto an attribute
-            im_list2.newattr = im_list2.copy()
-            # that makes it transient
-            self.assertEqual(
-                im_list2.newattr.__im_state__, interfaces.IM_STATE_TRANSIENT)
-
-        self.assertListEqual(im_list2.data, [41, 42])
-        self.assertListEqual(im_list3.data, [41, 42])
-
-        with self.assertRaises(AttributeError):
-            im_list2.append(42)
-        with self.assertRaises(AttributeError):
-            im_list2.newattr.append(42)
-        with self.assertRaises(AttributeError):
-            im_list3.append(42)
+            # we do not allow copy on a transient object, it just causes
+            # headaches
+            with self.assertRaises(AssertionError):
+                im_list3 = im_list2.copy()
 
     def test_copy_withMutable(self):
         class AnImmutable(immutable.ImmutableBase):
@@ -897,15 +882,14 @@ class ImmutableListTest(unittest.TestCase):
         im = AnImmutable()
         with im.__im_update__() as im2:
             im2.name = 'foobar'
-        im_list = immutable.ImmutableList([41, 42, im])
+        im_list = immutable.ImmutableList([41, 42, im2])
+        im_list_copy = im_list.copy()
+
         with im_list.__im_update__() as im_list2:
-            im_list3 = im_list2.copy()
-
-        # self.assertListEqual(im_list2.data, [41, 42, im])
-        # self.assertListEqual(im_list3.data, [41, 42, im])
-
-        with self.assertRaises(AttributeError):
-            im_list.append(42)
+            # we do not allow copy on a transient object, it just causes
+            # headaches
+            with self.assertRaises(AssertionError):
+                im_list3 = im_list2.copy()
 
     def test_append(self):
         im_list = immutable.ImmutableList()

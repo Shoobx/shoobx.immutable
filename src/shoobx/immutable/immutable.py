@@ -379,11 +379,12 @@ class ImmutableList(ImmutableBase, collections.UserList):
         super().__delitem__(i)
 
     def copy(self):
-        # Creating a shallow copy of the list does not make sense for
-        # immutables, since it can produce several unintended consequences
-        # that we do not want to deal with. Instead a locked clone is created.
-        result = self.__im_clone__()
-        result.__im_set_state__(interfaces.IM_STATE_LOCKED)
+        # We do not allow copy on a transient object, it just causes headaches
+        assert self.__im_state__ == interfaces.IM_STATE_LOCKED
+        # Returns a SHALLOW copy
+        result = self.__class__()
+        # need to skip driving all items through __im_conform__
+        result.data = self.data
         return result
 
     @failOnNonTransient
