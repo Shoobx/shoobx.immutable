@@ -249,6 +249,15 @@ class ImmutableDict(ImmutableBase, collections.UserDict):
     def __delitem__(self, key):
         super().__delitem__(key)
 
+    def copy(self):
+        # We do not allow copy on a transient object, it just causes headaches
+        assert self.__im_state__ == interfaces.IM_STATE_LOCKED
+        # Returns a SHALLOW copy
+        result = self.__class__()
+        # need to skip driving all items through __im_conform__
+        result.data = self.data
+        return result
+
     @failOnNonTransient
     def clear(self):
         return self.data.clear()
@@ -278,6 +287,11 @@ class ImmutableDict(ImmutableBase, collections.UserDict):
 
     def __setstate__(self, state):
         self.data = state
+
+    @classmethod
+    def fromkeys(cls, iterable, value=None):
+        raise NotImplementedError(
+            "Would cause cross referenced objects, which are not supported")
 
 
 @zope.interface.implementer(interfaces.IImmutable)

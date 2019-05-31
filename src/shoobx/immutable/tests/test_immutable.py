@@ -564,6 +564,41 @@ class ImmutableDictTest(unittest.TestCase):
         dct.__setstate__({'answer': 42})
         self.assertDictEqual(dict(dct), {'answer': 42})
 
+    def test_copy(self):
+        # copy works on locked objects
+        dct = immutable.ImmutableDict(answer=42)
+        im_dct_copy = dct.copy()
+        self.assertDictEqual(dict(im_dct_copy), {'answer': 42})
+
+        with self.assertRaises(AttributeError):
+            im_dct_copy['fishes'] = 43
+
+        with dct.__im_update__() as dct2:
+            # we do not allow copy on a transient object, it just causes
+            # headaches
+            with self.assertRaises(AssertionError):
+                dct3 = dct2.copy()
+
+    def test_copy_withMutable(self):
+        class AnImmutable(immutable.ImmutableBase):
+            pass
+
+        im = AnImmutable()
+        with im.__im_update__() as im2:
+            im2.name = 'foobar'
+        dct = immutable.ImmutableDict(answer=42, mutable=im2)
+        dct_copy = dct.copy()
+
+        with dct.__im_update__() as dct2:
+            # we do not allow copy on a transient object, it just causes
+            # headaches
+            with self.assertRaises(AssertionError):
+                dct3 = dct2.copy()
+
+    def test_fromkeys(self):
+        with self.assertRaises(NotImplementedError):
+            dct = immutable.ImmutableDict.fromkeys([41, 42], 'fishy')
+
 
 class ImmutableSetTest(unittest.TestCase):
 
