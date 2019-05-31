@@ -6,7 +6,7 @@ CHANGES
 1.0.4 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Add API documentation.
 
 
 1.0.3 (2019-05-30)

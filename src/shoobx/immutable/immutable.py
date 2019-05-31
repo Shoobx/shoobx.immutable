@@ -14,6 +14,10 @@ from shoobx.immutable import interfaces
 
 
 def update(im, *args, **kw):
+    """Update an immutable object.
+
+    This is a helper method for ``IImmutable.__im_update__(*args, **kw)``.
+    """
     return im.__im_update__(*args, **kw)
 
 
@@ -46,6 +50,12 @@ def applyStateOnInit(func):
 
 @zope.interface.implementer(interfaces.IImmutable)
 class ImmutableBase:
+    """Immutable Base
+
+    Core functionality for all immutable objects.
+
+    While the class can be used directly, it is meant to be a base class only.
+    """
 
     __im_mode__ = interfaces.IM_MODE_DEFAULT
     __im_state__ = interfaces.IM_STATE_TRANSIENT
