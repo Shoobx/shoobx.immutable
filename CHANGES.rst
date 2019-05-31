@@ -3,7 +3,7 @@ CHANGES
 =======
 
 
-1.1.0 (unreleased)
+1.1.0 (2019-05-31)
 ------------------
 
 - Introduced `__im_version__` to `IRevisionedImmutable` and use it instead of
