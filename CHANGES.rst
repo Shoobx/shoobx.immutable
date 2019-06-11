@@ -6,7 +6,7 @@ CHANGES
 1.1.1 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Added `datetime` classes as system immutable types.
 
 
 1.1.0 (2019-05-31)

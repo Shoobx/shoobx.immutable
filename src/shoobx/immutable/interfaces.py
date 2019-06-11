@@ -5,6 +5,7 @@
 ###############################################################################
 """Immutable Interfaces."""
 
+import datetime
 import decimal
 
 import zope.interface
@@ -25,6 +26,8 @@ IM_STATES_REVISIONED = (IM_STATE_LOCKED, IM_STATE_TRANSIENT, IM_STATE_RETIRED)
 
 IMMUTABLE_TYPES = (
     bool, int, float, complex, decimal.Decimal, tuple, str, bytes, type(None),
+    datetime.date, datetime.time, datetime.datetime, datetime.timedelta,
+    datetime.tzinfo,
 )
 
 LIST_TYPES = (

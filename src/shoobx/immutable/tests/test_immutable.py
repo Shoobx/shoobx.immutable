@@ -5,6 +5,7 @@
 ###############################################################################
 """Immutable Objects Tests."""
 
+import datetime
 import mock
 import unittest
 from zope.interface import verify
@@ -99,6 +100,21 @@ class ImmutableBaseTest(unittest.TestCase):
     def test_im_conform_withCoreImmutable(self):
         im = immutable.ImmutableBase()
         other = 42
+        self.assertIs(im.__im_conform__(other), other)
+
+        other = datetime.date(2019, 6, 11)
+        self.assertIs(im.__im_conform__(other), other)
+
+        other = datetime.time(11, 3)
+        self.assertIs(im.__im_conform__(other), other)
+
+        other = datetime.datetime(2019, 6, 11, 11, 3)
+        self.assertIs(im.__im_conform__(other), other)
+
+        other = datetime.timedelta(days=42)
+        self.assertIs(im.__im_conform__(other), other)
+
+        other = datetime.tzinfo()
         self.assertIs(im.__im_conform__(other), other)
 
     def test_im_conform_withDict(self):
