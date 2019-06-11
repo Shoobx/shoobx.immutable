@@ -3,7 +3,7 @@ CHANGES
 =======
 
 
-1.1.1 (unreleased)
+1.1.1 (2019-06-11)
 ------------------
 
 - Added `datetime` classes as system immutable types.
