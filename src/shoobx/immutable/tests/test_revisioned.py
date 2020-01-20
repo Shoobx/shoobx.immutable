@@ -5,6 +5,7 @@
 ###############################################################################
 """Revisioned Immutable Objects Tests."""
 
+import datetime
 import mock
 import unittest
 from zope.interface import verify
@@ -161,11 +162,86 @@ class SimpleRevisionedImmutableManagerTest(unittest.TestCase):
         rim.__im_end_on__ = rim.__im_start_on__
         self.assertIsNone(rimm.getCurrentRevision())
 
+    def test_getNumberOfRevisions(self):
+        rimm = revisioned.SimpleRevisionedImmutableManager()
+        rim = revisioned.RevisionedImmutable()
+        self.assertEqual(rimm.getNumberOfRevisions(), 0)
+        rimm.addRevision(rim)
+        self.assertEqual(rimm.getNumberOfRevisions(), 1)
+
     def test_getRevisionHistory(self):
         rimm = revisioned.SimpleRevisionedImmutableManager()
         rim = revisioned.RevisionedImmutable()
         rimm.addRevision(rim)
-        self.assertListEqual(rimm.getRevisionHistory(), [rim])
+        self.assertListEqual(list(rimm.getRevisionHistory()), [rim])
+
+    def test_getRevisionHistory_withCreator(self):
+        rimm = revisioned.SimpleRevisionedImmutableManager()
+        rim = revisioned.RevisionedImmutable()
+        rimm.addRevision(rim)
+        with rim.__im_update__(creator='someone') as rim2:
+            pass
+        self.assertListEqual(
+            list(rimm.getRevisionHistory(creator='someone')), [rim2])
+
+    def test_getRevisionHistory_withComment(self):
+        rimm = revisioned.SimpleRevisionedImmutableManager()
+        rim = revisioned.RevisionedImmutable()
+        rimm.addRevision(rim)
+        with rim.__im_update__(comment='Some important update') as rim2:
+            pass
+        self.assertListEqual(
+            list(rimm.getRevisionHistory(comment='important')), [rim2])
+
+    def test_getRevisionHistory_withStartBefore(self):
+        rimm = revisioned.SimpleRevisionedImmutableManager()
+        rimm.now = lambda: datetime.datetime(2020, 1, 1)
+        rim = revisioned.RevisionedImmutable()
+        rimm.addRevision(rim)
+        rimm.now = now = lambda: datetime.datetime(2020, 1, 2)
+        with rim.__im_update__(comment='Some important update') as rim2:
+            pass
+        self.assertListEqual(
+            list(rimm.getRevisionHistory(startBefore=now())), [rim])
+
+    def test_getRevisionHistory_withStartAfter(self):
+        rimm = revisioned.SimpleRevisionedImmutableManager()
+        rimm.now = now = lambda: datetime.datetime(2020, 1, 1)
+        rim = revisioned.RevisionedImmutable()
+        rimm.addRevision(rim)
+        rimm.now = lambda: datetime.datetime(2020, 1, 2)
+        with rim.__im_update__(comment='Some important update') as rim2:
+            pass
+        self.assertListEqual(
+            list(rimm.getRevisionHistory(startAfter=now())), [rim2])
+
+    def test_getRevisionHistory_withReversed(self):
+        rimm = revisioned.SimpleRevisionedImmutableManager()
+        rim = revisioned.RevisionedImmutable()
+        rimm.addRevision(rim)
+        with rim.__im_update__(creator='someone') as rim2:
+            pass
+        self.assertListEqual(
+            list(rimm.getRevisionHistory(reversed=True)), [rim2, rim])
+
+    def test_getRevisionHistory_withBatching(self):
+        rimm = revisioned.SimpleRevisionedImmutableManager()
+        rim = revisioned.RevisionedImmutable()
+        rimm.addRevision(rim)
+        with rim.__im_update__(creator='someone') as rim2:
+            pass
+        with rim2.__im_update__(creator='someone') as rim3:
+            pass
+        with rim3.__im_update__(creator='someone') as rim4:
+            pass
+        with rim4.__im_update__(creator='someone') as rim5:
+            pass
+        self.assertListEqual(
+            list(rimm.getRevisionHistory(batchSize=2)),
+            [rim, rim2])
+        self.assertListEqual(
+            list(rimm.getRevisionHistory(batchStart=2, batchSize=2)),
+            [rim3, rim4])
 
     def test_rollbackToRevision(self):
         rimm = revisioned.SimpleRevisionedImmutableManager()
@@ -290,7 +366,7 @@ class RevisionedFunctionalTest(unittest.TestCase):
         self.assertIs(map['everything'], question)
 
         # Now we modify the question.
-        with question.__im_update__('srichter', 'Provide Answer') as question2:
+        with question.__im_update__('computer', 'Provide Answer') as question2:
             question2.answer = 42
 
         # `question2` is now the current revision and has been added to the
@@ -301,7 +377,7 @@ class RevisionedFunctionalTest(unittest.TestCase):
         self.assertIsNone(question2.__im_end_on__)
         self.assertIsNotNone(question2.__im_manager__)
         self.assertEqual(question2.__im_comment__, 'Provide Answer')
-        self.assertEqual(question2.__im_creator__, 'srichter')
+        self.assertEqual(question2.__im_creator__, 'computer')
         self.assertIs(map['everything'], question2)
         # The original question, on the other hand, has been retired.
         self.assertIsNotNone(question.__im_end_on__)
@@ -310,4 +386,4 @@ class RevisionedFunctionalTest(unittest.TestCase):
 
         # We can now also observe the revision history.
         revisions = map.getRevisionManager('everything')
-        self.assertTrue(len(revisions.getRevisionHistory()), 2)
+        self.assertEqual(revisions.getNumberOfRevisions(), 2)

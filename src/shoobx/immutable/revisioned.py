@@ -56,8 +56,42 @@ class SimpleRevisionedImmutableManager:
             return None
         return self.__data__[-1]
 
-    def getRevisionHistory(self, obj=None):
-        return self.__data__
+    def getNumberOfRevisions(self, obj=None):
+        return len(self.__data__)
+
+    def getRevisionHistory(
+            self, obj=None, creator=None, comment=None,
+            startBefore=None, startAfter=None,
+            batchStart=0, batchSize=None, reversed=False):
+        result = list(self.__data__)
+
+        # 1. Apply filtering.
+        if creator is not None:
+            result = [
+                obj for obj in result
+                if (obj.__im_creator__ is not None and
+                    obj.__im_creator__ == creator)]
+        if comment is not None:
+            result = [
+                obj for obj in result
+                if (obj.__im_comment__ is not None and
+                    comment in obj.__im_comment__)]
+        if startBefore is not None:
+            result = [obj for obj in result if obj.__im_start_on__ < startBefore]
+        if startAfter is not None:
+            result = [obj for obj in result if obj.__im_start_on__ > startAfter]
+
+        # 3. Setup ordering
+        if reversed:
+            result.reverse()
+
+        # 4. Apply batching
+        if batchStart:
+            result = result[batchStart:]
+        if batchSize is not None:
+            result = result[:batchSize]
+
+        return iter(result)
 
     def addRevision(self, new, old=None):
         now = self.now()

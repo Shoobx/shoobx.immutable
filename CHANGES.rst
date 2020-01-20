@@ -3,10 +3,48 @@ CHANGES
 =======
 
 
-1.1.2 (unreleased)
+1.2.0 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Extended `IRevisionedImmutableManager` to support efficient version
+  management.
+
+  * Added `getNumberOfRevisions(obj)` method to return the number of revisions
+    available for a given object. Note that this does not necessarily equal to
+    the latest revision number.
+
+  * Exended `getRevisionHistory()` with multiple new arguments to support
+    filtering, sorting and batching:
+
+    Filter Arguments:
+
+    * `creator`: The creator of the revision must match the argument.
+
+    * `comment`: The comment must contain the argument as a substring.
+
+    * `startBefore`: The revision must start before the given date/time.
+
+    * `startAfter`: The revision must start after the given date/time.
+
+    Ordering Arguments:
+
+    * `reversed`: When true, the history will be return in reverse
+                  chronological order, specifically the latest revision is
+                  listed first.
+
+    Batching Arguments:
+
+    * `batchStart`: The index at which to start the batch.
+
+    * `batchSize`: The size the of the batch. It is thus the max length of
+                   the iterable.
+
+- Provided an implementation of the new arguments for both the simple revision
+  manage and the pjpersist container.
+
+- Declare that `ImmutableContainer` implements `IRevisionedImmutableManager`.
+
+- Increased test coverage back to 100%.
 
 
 1.1.1 (2019-06-11)

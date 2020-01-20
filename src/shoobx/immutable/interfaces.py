@@ -219,17 +219,54 @@ class IRevisionedImmutableManager(zope.interface.Interface):
     This interface is agnostic on how the underlying object is identified from
     the revision. A sensible implementation is to have a deignated attribute
     for the name of the object.
-    """
 
-    def getRevisionHistory(obj):
-        """Returns list of all revisions of the object in chronological order.
-        """
+    The API was also designed to support efficient revision management when
+    working large numbers of revisions. This adds some complexities for simple
+    implementations.
+    """
 
     def getCurrentRevision(obj):
         """Get the currently active revision of the object.
 
         If no revision or active revision is found for the object, `None` is
         returned.
+        """
+
+    def getNumberOfRevisions(obj):
+        """Return the total number of revisions."""
+
+    def getRevisionHistory(
+            obj,
+            creator:str=None,
+            comment:str=None,
+            startBefore:datetime.datetime=None,
+            startAfter:datetime.datetime=None,
+            batchStart:int=0, batchSize:int=None,
+            reversed:bool=False):
+        """Returns an iterable of object revisions in chronological order.
+
+        The following arguments filter the search results:
+
+        * `creator`: The creator of the revision must match the argument.
+
+        * `comment`: The comment must contain the argument as a substring.
+
+        * `startBefore`: The revision must start before the given date/time.
+
+        * `startAfter`: The revision must start after the given date/time.
+
+        The following arguments affect the ordering:
+
+        * `reversed`: When true, the history will be return in reverse
+                      chronological order, specifically the latest revision is
+                      listed first.
+
+        The following arguments apply batching:
+
+        * `batchStart`: The index at which to start the batch.
+
+        * `batchSize`: The size the of the batch. It is thus the max length of
+                       the iterable.
         """
 
     def addRevision(new, old=None):

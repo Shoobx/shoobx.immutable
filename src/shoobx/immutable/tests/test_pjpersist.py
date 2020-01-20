@@ -152,6 +152,12 @@ class ImmutableContainerTest(unittest.TestCase):
         self.cont._p_jar = self.dm
         self.cont._pj_table = 'table'
 
+    def test_verifyInterface(self):
+        self.assertTrue(
+            verify.verifyClass(
+                interfaces.IRevisionedImmutableManager,
+                pjpersist.ImmutableContainer))
+
     def test_p_pj_table(self):
         self.assertEqual(self.cont._p_pj_table, 'table')
 
@@ -183,6 +189,7 @@ class ImmutableContainerTest(unittest.TestCase):
         im = pjpersist.Immutable()
         self.cont.add(im)
         self.assertIs(self.cont.getCurrentRevision(im), im)
+
 
 class ImmutableDatabaseTest(testing.PJTestCase):
 
@@ -222,6 +229,22 @@ class ImmutableDatabaseTest(testing.PJTestCase):
         cur = self.questions.getCurrentRevision(q)
         self.assertEqual(q._p_oid, cur._p_oid)
 
+    def test_getRevision(self):
+        q = Question('What is the answer')
+        self.questions.add(q)
+        with q.__im_update__() as q2:
+            pass
+        self.assertEqual(
+            self.questions.getRevision(q.__name__, 0), q)
+        self.assertEqual(
+            self.questions.getRevision(q.__name__, 1), q2)
+
+    def test_getNumberOfRevisions(self):
+        q = Question('What is the answer')
+        self.questions.add(q)
+        transaction.commit()
+        self.assertEqual(self.questions.getNumberOfRevisions(q), 1)
+
     def test_getRevisionHistory(self):
         q = Question('What is the answer')
         self.questions.add(q)
@@ -229,6 +252,76 @@ class ImmutableDatabaseTest(testing.PJTestCase):
         history = list(self.questions.getRevisionHistory(q))
         self.assertEqual(len(history), 1)
         self.assertEqual(q._p_oid, history[0]._p_oid)
+
+    def test_getRevisionHistory_withCreator(self):
+        q = Question('What is the answer')
+        self.questions.add(q)
+        with q.__im_update__(creator='someone') as q2:
+            pass
+        self.assertListEqual(
+            list(self.questions.getRevisionHistory(q, creator='someone')),
+            [q2])
+
+    def test_getRevisionHistory_withComment(self):
+        q = Question('What is the answer')
+        self.questions.add(q)
+        with q.__im_update__(comment='Some important update') as q2:
+            pass
+        self.assertListEqual(
+            list(self.questions.getRevisionHistory(q, comment='important')),
+            [q2])
+
+    def test_getRevisionHistory_withStartBefore(self):
+        q = Question('What is the answer')
+        self.questions.now = lambda: datetime.datetime(2020, 1, 1)
+        self.questions.add(q)
+        self.questions.now = now = lambda: datetime.datetime(2020, 1, 2)
+        with q.__im_update__(comment='Some important update') as q2:
+            pass
+        self.assertListEqual(
+            list(self.questions.getRevisionHistory(q, startBefore=now())),
+            [q])
+
+    def test_getRevisionHistory_withStartAfter(self):
+        q = Question('What is the answer')
+        self.questions.now = now = lambda: datetime.datetime(2020, 1, 1)
+        self.questions.add(q)
+        self.questions.now = lambda: datetime.datetime(2020, 1, 2)
+        with q.__im_update__(comment='Some important update') as q2:
+            pass
+        self.assertListEqual(
+            list(self.questions.getRevisionHistory(q, startAfter=now())),
+            [q2])
+
+    def test_getRevisionHistory_withReversed(self):
+        q = Question('What is the answer')
+        self.questions.now = now = lambda: datetime.datetime(2020, 1, 1)
+        self.questions.add(q)
+        with q.__im_update__(creator='someone') as q2:
+            pass
+        self.assertListEqual(
+            list(self.questions.getRevisionHistory(q, reversed=True)),
+            [q2, q])
+
+    def test_getRevisionHistory_withBatching(self):
+        q = Question('What is the answer')
+        self.questions.now = now = lambda: datetime.datetime(2020, 1, 1)
+        self.questions.add(q)
+        with q.__im_update__() as q2:
+            pass
+        with q2.__im_update__() as q3:
+            pass
+        with q3.__im_update__() as q4:
+            pass
+        with q4.__im_update__() as q5:
+            pass
+        self.assertListEqual(
+            list(self.questions.getRevisionHistory(q, batchSize=2)),
+            [q, q2])
+        self.assertListEqual(
+            list(self.questions.getRevisionHistory(
+                    q, batchStart=2, batchSize=2)),
+            [q3, q4])
 
     def test_rollbackToRevision(self):
         q1 = Question('What is the answer')
