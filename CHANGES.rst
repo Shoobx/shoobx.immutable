@@ -3,7 +3,7 @@ CHANGES
 =======
 
 
-1.2.0 (unreleased)
+1.2.0 (2020-01-20)
 ------------------
 
 - Extended `IRevisionedImmutableManager` to support efficient version
