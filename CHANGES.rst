@@ -3,7 +3,7 @@ CHANGES
 =======
 
 
-1.2.1 (unreleased)
+1.2.1 (2020-02-02)
 ------------------
 
 - Fix `ImmutableContainer.__delitem__` : it did not remove revisions of the
