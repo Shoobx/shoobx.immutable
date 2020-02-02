@@ -332,12 +332,26 @@ class ImmutableDatabaseTest(testing.PJTestCase):
         self.assertEqual(
             self.questions.getCurrentRevision(q1)._p_oid, q2._p_oid)
 
+        anotherq = Question('Another trivia')
+        self.questions.add(anotherq)
+
+        with anotherq.__im_update__() as anotherq2:
+            anotherq2.answer = 9
+        transaction.commit()
+
+        with anotherq2.__im_update__() as anotherq3:
+            anotherq3.answer = 3
+        transaction.commit()
+
         self.questions.rollbackToRevision(q1, activate=True)
         transaction.commit()
         cur = self.questions.getCurrentRevision(q1)
         self.assertEqual(cur._p_oid, q1._p_oid)
         self.assertEqual(cur.__im_state__, interfaces.IM_STATE_LOCKED)
         self.assertIsNone(cur.__im_end_on__)
+
+        anotherCur = self.questions.getCurrentRevision(anotherq)
+        self.assertEqual(anotherCur._p_oid, anotherq3._p_oid)
 
     def test_rollbackToRevision_doNotActivate(self):
         q1 = Question('What is the answer')
@@ -363,7 +377,7 @@ class ImmutableDatabaseTest(testing.PJTestCase):
     def test_functional(self):
         q = Question('What is the answer')
         self.questions.add(q)
-        self.assertTrue(len(self.questions), 1)
+        self.assertEqual(len(self.questions), 1)
 
         with q.__im_update__() as q2:
             q2.answer = 42
@@ -375,7 +389,7 @@ class ImmutableDatabaseTest(testing.PJTestCase):
         self.assertIsInstance(q2.cast, immutable.ImmutableDict)
         self.assertEqual(q2.cast.__im_mode__, interfaces.IM_MODE_SLAVE)
 
-        self.assertTrue(len(self.questions), 1)
+        self.assertEqual(len(self.questions), 1)
         self.assertEqual(q.__im_state__, interfaces.IM_STATE_RETIRED)
         self.assertEqual(q2.__im_state__, interfaces.IM_STATE_LOCKED)
 
@@ -404,3 +418,43 @@ class ImmutableDatabaseTest(testing.PJTestCase):
         rev1, = revs
         self.assertIsNone(rev1.__im_end_on__)
         self.assertEqual(rev1._p_oid.id, q._p_oid.id)
+
+    def test_delete(self):
+        q1 = Question('What is the answer')
+        self.questions.add(q1)
+        self.assertEqual(len(self.questions), 1)
+        with q1.__im_update__() as q2:
+            q2.answer = 42
+        transaction.commit()
+        self.assertEqual(len(self.questions), 1)
+        self.assertEqual(q1.__name__, q2.__name__)
+
+        anotherq = Question('Another trivia')
+        self.questions.add(anotherq)
+
+        with anotherq.__im_update__() as anotherq2:
+            anotherq2.answer = 9
+        transaction.commit()
+
+        with anotherq2.__im_update__() as anotherq3:
+            anotherq3.answer = 3
+        transaction.commit()
+
+        self.assertEqual(len(self.questions), 2)
+
+        cur = self.questions._pj_jar.getCursor()
+
+        # read directly the table to avoid any filtering by pjpersist
+        cur.execute("SELECT * FROM questions")
+        result = list(cur.fetchall())
+        self.assertEqual(len(result), 2+3)  # 2 revs of q1, 3 of anotherq
+
+        # delete the object
+        del self.questions[q1.__name__]
+        self.assertEqual(len(self.questions), 1)
+
+        cur.execute("SELECT * FROM questions")
+        result = list(cur.fetchall())
+
+        # that should delete all revisions
+        self.assertEqual(len(result), 3)  # 3 revs of anotherq

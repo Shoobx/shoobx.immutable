@@ -6,7 +6,11 @@ CHANGES
 1.2.1 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Fix `ImmutableContainer.__delitem__` : it did not remove revisions of the
+  deleted object
+
+- Fix `ImmutableContainer.rollbackToRevision` : it rolled back ALL objects
+  to the given revision
 
 
 1.2.0 (2020-01-20)
