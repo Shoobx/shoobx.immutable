@@ -205,10 +205,16 @@ class ImmutableContainer(pjcontainer.AllItemsPJContainer):
 
     def rollbackToRevision(self, revision, activate=False):
         cur = self._pj_jar.getCursor()
-        cur.execute(sb.Delete(
-            self._pj_table,
-            sb.Field(self._pj_table, "version") > revision.__im_version__
-        ))
+        qry = self._combine_filters(
+            super()._pj_get_resolve_filter(),
+            sb.Field(self._pj_table, "version") > revision.__im_version__,
+            sb.Field(self._pj_table, self._pj_mapping_key) == revision.__name__
+        )
+        # this DELETE works fine just because `execute` checks all SQL commands
+        # and calls PJDataManager.setDirty accordingly
+        # OTOH not sure that deleting directly is 100% because
+        # pjpersist `PJDataManager.remove` does a bit more than just a SQL DELETE
+        cur.execute(sb.Delete(self._pj_table, qry))
         revision.__im_state__ = interfaces.IM_STATE_LOCKED
         if activate:
             revision.__im_end_on__ = None
@@ -225,3 +231,16 @@ class ImmutableContainer(pjcontainer.AllItemsPJContainer):
         new.__im_start_on__ = now
         self._pj_jar.register(new)
         self._cache[new.__name__] = new
+
+    def __delitem__(self, key):
+        super().__delitem__(key)
+
+        # need to make sure that all revisions get deleted
+        cur = self._pj_jar.getCursor()
+        qry = self._combine_filters(
+            super()._pj_get_resolve_filter(),
+            sb.Field(self._pj_table, self._pj_mapping_key) == key
+        )
+        # this DELETE works fine just because `execute` checks all SQL commands
+        # and calls PJDataManager.setDirty accordingly
+        cur.execute(sb.Delete(self._pj_table, qry))
