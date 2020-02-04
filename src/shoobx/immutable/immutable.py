@@ -13,6 +13,14 @@ from contextlib import contextmanager
 from shoobx.immutable import interfaces
 
 
+def create(cls, *args, **kw):
+    """Create an immutable object.
+
+    This is a helper method for ``IImmutable.__im_create__(*args, **kw)``.
+    """
+    return cls.__im_create__(*args, **kw)
+
+
 def update(im, *args, **kw):
     """Update an immutable object.
 
@@ -34,20 +42,6 @@ def failOnNonTransient(func):
     return wrapper
 
 
-def applyStateOnInit(func):
-    """Handle immutable internal arguments to the constructor."""
-
-    @functools.wraps(func)
-    def wrapper(self, *args, im_finalize=True, im_mode=None, **kw):
-        func(self, *args, **kw)
-        if im_mode is not None:
-            self.__im_mode__ = im_mode
-        if im_finalize:
-            self.__im_finalize__()
-
-    return wrapper
-
-
 @zope.interface.implementer(interfaces.IImmutable)
 class ImmutableBase:
     """Immutable Base
@@ -59,12 +53,6 @@ class ImmutableBase:
 
     __im_mode__ = interfaces.IM_MODE_DEFAULT
     __im_state__ = interfaces.IM_STATE_TRANSIENT
-
-    @applyStateOnInit
-    def __init__(self):
-        # this is here to make the ImmutableMeta wrapper work
-        # with classes having no __init__
-        pass
 
     def __im_conform__(self, object):
         # The returned object will be a slave of `self`
@@ -135,11 +123,37 @@ class ImmutableBase:
             if interfaces.IImmutable.providedBy(subobj):
                 subobj.__im_set_state__(state)
 
+    def __im_after_create__(self):
+        pass
+
     def __im_before_update__(self, clone):
         pass
 
     def __im_after_update__(self, clone):
         pass
+
+    @classmethod
+    @contextmanager
+    def __im_create__(cls, mode=None, finalize=True, *args, **kw):
+
+        def factory(*args, **kw):
+            obj = cls(*args, **kw)
+            obj.__im_after_create__(*args, **kw)
+            factory.created += (obj,)
+            return obj
+
+        factory.created = ()
+
+        try:
+            yield factory
+        except:
+            raise
+
+        for obj in factory.created:
+            if mode is not None:
+                obj.__im_mode__ = mode
+            if finalize:
+                obj.__im_finalize__()
 
     @contextmanager
     def __im_update__(self, *args, **kw):
@@ -186,26 +200,16 @@ class ImmutableBase:
         super().__setattr__(name, im_value)
 
 
-class ImmutableMeta(type):
-
-    def __new__(cls, name, bases, dct):
-        if '__init__' in dct:
-            dct['__init__'] = applyStateOnInit(dct['__init__'])
-        return super().__new__(cls, name, bases, dct)
-
-
 @zope.interface.implementer(interfaces.IImmutableObject)
-class Immutable(ImmutableBase, metaclass=ImmutableMeta):
+class Immutable(ImmutableBase):
     pass
 
 
 @zope.interface.implementer(interfaces.IImmutable)
 class ImmutableDict(ImmutableBase, collections.UserDict):
 
-    @applyStateOnInit
     def __init__(self, *args, **kw):
-        # need to avoid calling ImmutableBase.__init__ here
-        collections.UserDict.__init__(self)
+        super().__init__()
         # make sure all values go through OUR `__setitem__`
         if args:
             for key, value in args[0].items():
@@ -298,10 +302,8 @@ class ImmutableDict(ImmutableBase, collections.UserDict):
 @zope.interface.implementer(interfaces.IImmutable)
 class ImmutableSet(ImmutableBase, collections.abc.MutableSet):
 
-    @applyStateOnInit
     def __init__(self, *args, **kw):
-        # need to avoid calling ImmutableBase.__init__ here
-        collections.abc.MutableSet.__init__(self)
+        super().__init__()
         self.__data__ = set()
         if args:
             # make sure all values go through OUR `add`
@@ -353,7 +355,6 @@ class ImmutableSet(ImmutableBase, collections.abc.MutableSet):
 @zope.interface.implementer(interfaces.IImmutable)
 class ImmutableList(ImmutableBase, collections.UserList):
 
-    @applyStateOnInit
     def __init__(self, *args, **kw):
         # need to avoid calling ImmutableBase.__init__ here
         collections.UserList.__init__(self)

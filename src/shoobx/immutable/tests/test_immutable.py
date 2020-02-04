@@ -15,8 +15,15 @@ from shoobx.immutable import immutable, interfaces
 
 class ImmutableHelpersTest(unittest.TestCase):
 
+    def test_create(self):
+        with immutable.create(immutable.ImmutableBase) as factory:
+            im = factory()
+        self.assertIsInstance(im, immutable.ImmutableBase)
+        self.assertEqual(im.__im_state__, interfaces.IM_STATE_LOCKED)
+
     def test_update(self):
         im = immutable.ImmutableBase()
+        im.__im_finalize__()
         with immutable.update(im) as im2:
             im2.answer = 42
         self.assertIsNot(im, im2)
@@ -35,30 +42,6 @@ class ImmutableHelpersTest(unittest.TestCase):
         with self.assertRaises(AttributeError):
             wrapper(im)
 
-    def test_applyStateOnInit(self):
-        func = mock.Mock()
-        wrapper = immutable.applyStateOnInit(func)
-        im = immutable.ImmutableBase.__new__(immutable.ImmutableBase)
-        wrapper(im)
-        self.assertTrue(func.called)
-        self.assertEqual(im.__im_state__, interfaces.IM_STATE_LOCKED)
-
-    def test_applyStateOnInit_withoutFinalization(self):
-        func = mock.Mock()
-        wrapper = immutable.applyStateOnInit(func)
-        im = immutable.ImmutableBase.__new__(immutable.ImmutableBase)
-        wrapper(im, im_finalize=False)
-        self.assertTrue(func.called)
-        self.assertEqual(im.__im_state__, interfaces.IM_STATE_TRANSIENT)
-
-    def test_applyStateOnInit_asSlave(self):
-        func = mock.Mock()
-        wrapper = immutable.applyStateOnInit(func)
-        im = immutable.ImmutableBase.__new__(immutable.ImmutableBase)
-        wrapper(im, im_mode=interfaces.IM_MODE_SLAVE)
-        self.assertEqual(im.__im_mode__, interfaces.IM_MODE_SLAVE)
-        self.assertEqual(im.__im_state__, interfaces.IM_STATE_LOCKED)
-
 
 class ImmutableBaseTest(unittest.TestCase):
 
@@ -69,21 +52,11 @@ class ImmutableBaseTest(unittest.TestCase):
     def test_init(self):
         im = immutable.ImmutableBase()
         self.assertEqual(im.__im_mode__, interfaces.IM_MODE_MASTER)
-        self.assertEqual(im.__im_state__, interfaces.IM_STATE_LOCKED)
-
-    def test_init_withoutFinalization(self):
-        im = immutable.ImmutableBase(im_finalize=False)
-        self.assertEqual(im.__im_mode__, interfaces.IM_MODE_MASTER)
         self.assertEqual(im.__im_state__, interfaces.IM_STATE_TRANSIENT)
-
-    def test_init_asSlave(self):
-        im = immutable.ImmutableBase(im_mode=interfaces.IM_MODE_SLAVE)
-        self.assertEqual(im.__im_mode__, interfaces.IM_MODE_SLAVE)
-        self.assertEqual(im.__im_state__, interfaces.IM_STATE_LOCKED)
 
     def test_im_conform(self):
         im = immutable.ImmutableBase()
-        other = immutable.ImmutableBase(im_finalize=False)
+        other = immutable.ImmutableBase()
         conform = im.__im_conform__(other)
         self.assertIs(conform, other)
         self.assertEqual(conform.__im_state__, interfaces.IM_STATE_TRANSIENT)
@@ -142,7 +115,7 @@ class ImmutableBaseTest(unittest.TestCase):
 
         class Mutable:
             def __im_get__(self, mode=None):
-                return ConformedImmutable(im_mode=mode, im_finalize=False)
+                return ConformedImmutable(im_mode=mode)
 
         im = immutable.ImmutableBase()
         im_mutable = im.__im_conform__(Mutable())
@@ -155,28 +128,28 @@ class ImmutableBaseTest(unittest.TestCase):
             im.__im_conform__(object())
 
     def test_im_clone(self):
-        im = immutable.ImmutableBase(im_finalize=False)
+        im = immutable.ImmutableBase()
         im2 = im.__im_clone__()
         self.assertIsNot(im, im2)
         self.assertEqual(im2.__im_state__, interfaces.IM_STATE_TRANSIENT)
 
     def test_im_clone_withLocked(self):
-        im = immutable.ImmutableBase(im_finalize=False)
+        im = immutable.ImmutableBase()
         im.__im_state__ = interfaces.IM_STATE_LOCKED
         # Clones are always transient.
         im2 = im.__im_clone__()
         self.assertEqual(im2.__im_state__, interfaces.IM_STATE_TRANSIENT)
 
     def test_im_clone_withCoreSub(self):
-        im = immutable.ImmutableBase(im_finalize=False)
+        im = immutable.ImmutableBase()
         im.answer = 42
         # Clones are always transient.
         im2 = im.__im_clone__()
         self.assertEqual(im2.answer, 42)
 
     def test_im_clone_withImmutableSub(self):
-        im = immutable.ImmutableBase(im_finalize=False)
-        im.answer = immutable.ImmutableBase(im_finalize=False)
+        im = immutable.ImmutableBase()
+        im.answer = immutable.ImmutableBase()
         im.__im_finalize__()
         # All sub-objects of the clone are transient.
         im2 = im.__im_clone__()
@@ -184,7 +157,7 @@ class ImmutableBaseTest(unittest.TestCase):
         self.assertEqual(im2.answer.__im_state__, interfaces.IM_STATE_TRANSIENT)
 
     def test_im_finalize(self):
-        im = immutable.ImmutableBase(im_finalize=False)
+        im = immutable.ImmutableBase()
         im.__im_finalize__()
         self.assertEqual(im.__im_state__, interfaces.IM_STATE_LOCKED)
 
@@ -194,28 +167,47 @@ class ImmutableBaseTest(unittest.TestCase):
             im.__im_finalize__()
 
     def test_im_finalize_withCoreSub(self):
-        im = immutable.ImmutableBase(im_finalize=False)
+        im = immutable.ImmutableBase()
         im.answer = 42
         im.__im_finalize__()
         self.assertEqual(im.answer, 42)
 
     def test_im_finalize_withImmutableSub(self):
-        im = immutable.ImmutableBase(im_finalize=False)
-        im.answer = immutable.ImmutableBase(im_finalize=False)
+        im = immutable.ImmutableBase()
+        im.answer = immutable.ImmutableBase()
         # finalization will finalize all sub-immutables as well.
         im.__im_finalize__()
         self.assertEqual(im.__im_state__, interfaces.IM_STATE_LOCKED)
         self.assertEqual(im.answer.__im_state__, interfaces.IM_STATE_LOCKED)
 
     def test_im_before_update(self):
-        im = immutable.ImmutableBase(im_finalize=False)
+        im = immutable.ImmutableBase()
         # No-op.
         im.__im_before_update__(None)
 
     def test_im_after_update(self):
-        im = immutable.ImmutableBase(im_finalize=False)
+        im = immutable.ImmutableBase()
         # No-op.
         im.__im_after_update__(None)
+
+    def test_im_create(self):
+        with immutable.ImmutableBase.__im_create__() as ifactory:
+            im = ifactory()
+        self.assertEqual(im.__im_mode__, interfaces.IM_MODE_MASTER)
+        self.assertEqual(im.__im_state__, interfaces.IM_STATE_LOCKED)
+
+    def test_im_create_withoutFinalization(self):
+        with immutable.ImmutableBase.__im_create__(finalize=False) as ifactory:
+            im = ifactory()
+        self.assertEqual(im.__im_mode__, interfaces.IM_MODE_MASTER)
+        self.assertEqual(im.__im_state__, interfaces.IM_STATE_TRANSIENT)
+
+    def test_im_create_asSlave(self):
+        with immutable.ImmutableBase.__im_create__(
+                 mode=interfaces.IM_MODE_SLAVE) as ifactory:
+            im = ifactory()
+        self.assertEqual(im.__im_mode__, interfaces.IM_MODE_SLAVE)
+        self.assertEqual(im.__im_state__, interfaces.IM_STATE_LOCKED)
 
     def test_im_update(self):
         im = immutable.ImmutableBase()
@@ -226,7 +218,7 @@ class ImmutableBaseTest(unittest.TestCase):
         self.assertEqual(im2.__im_state__, interfaces.IM_STATE_LOCKED)
 
     def test_im_update_withTransientImmutable(self):
-        im = immutable.ImmutableBase(im_finalize=False)
+        im = immutable.ImmutableBase()
         with im.__im_update__() as im2:
             pass
         self.assertIs(im, im2)
@@ -320,7 +312,7 @@ class ImmutableBaseTest(unittest.TestCase):
 
     def test_setattr(self):
         # By default, the immutable is transient.
-        im = immutable.ImmutableBase(im_finalize=False)
+        im = immutable.ImmutableBase()
         im.answer = 42
         self.assertEqual(im.answer, 42)
 

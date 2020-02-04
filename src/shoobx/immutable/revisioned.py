@@ -23,6 +23,10 @@ class RevisionedImmutableBase(immutable.ImmutableBase):
     __im_comment__ = None
     __im_manager__ = None
 
+    def __im_after_create__(self, creator=None, comment=None):
+        self.__im_creator__ = creator
+        self.__im_comment__ = comment
+
     def __im_before_update__(self, clone, creator=None, comment=None):
         # Assign the update information to the clone:
         clone.__im_creator__ = creator
@@ -34,8 +38,7 @@ class RevisionedImmutableBase(immutable.ImmutableBase):
             self.__im_manager__.addRevision(clone, old=self)
 
 
-class RevisionedImmutable(
-        RevisionedImmutableBase, metaclass=immutable.ImmutableMeta):
+class RevisionedImmutable(RevisionedImmutableBase):
     pass
 
 
