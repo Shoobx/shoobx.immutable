@@ -13,8 +13,8 @@ Let's start with a simple dictionary:
 
   >>> import shoobx.immutable as im
 
-  >>> with im.create(im.ImmutableDict) as idict:
-  ...     answer = idict({
+  >>> with im.create(im.ImmutableDict) as factory:
+  ...     answer = factory({
   ...         'question': 'Answer to the ultimate question of life, ...',
   ...         'answer': 0
   ...     })

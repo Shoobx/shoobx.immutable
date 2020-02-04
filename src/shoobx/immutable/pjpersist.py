@@ -6,7 +6,6 @@
 """pjpersist Container of Immutables.
 """
 import datetime
-import persistent
 import zope.interface
 import zope.schema
 import pjpersist.sqlbuilder as sb
@@ -122,7 +121,7 @@ class ImmutableContainer(pjcontainer.AllItemsPJContainer):
         # Return a filter that matches ONLY the current version.
         qry = self._pj_get_resolve_filter_all_versions()
         endOnFld = sb.Field(self._pj_table, 'endOn')
-        return self._combine_filters(qry, endOnFld == None)
+        return self._combine_filters(qry, endOnFld == None)  # noqa E711
 
     def _load_one(self, id, doc, use_cache=True):
         obj = super()._load_one(id, doc, use_cache=use_cache)
@@ -218,7 +217,8 @@ class ImmutableContainer(pjcontainer.AllItemsPJContainer):
         # this DELETE works fine just because `execute` checks all SQL commands
         # and calls PJDataManager.setDirty accordingly
         # OTOH not sure that deleting directly is 100% because
-        # pjpersist `PJDataManager.remove` does a bit more than just a SQL DELETE
+        # pjpersist `PJDataManager.remove` does a bit more than just a
+        # SQL DELETE
         cur.execute(sb.Delete(self._pj_table, qry))
         revision.__im_state__ = interfaces.IM_STATE_LOCKED
         if activate:

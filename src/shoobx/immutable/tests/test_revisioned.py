@@ -18,24 +18,22 @@ class RevisionedImmutableBaseTest(unittest.TestCase):
     def test_verifyInterface(self):
         self.assertTrue(
             verify.verifyClass(
-                interfaces.IImmutable,
-                revisioned.RevisionedImmutableBase))
-        self.assertTrue(
-            verify.verifyClass(
                 interfaces.IRevisionedImmutable,
                 revisioned.RevisionedImmutableBase))
 
     def test_init(self):
-        rim = revisioned.RevisionedImmutableBase()
-        self.assertEqual(rim.__im_version__, 0)
-        self.assertIsNone(rim.__im_start_on__)
-        self.assertIsNone(rim.__im_end_on__)
-        self.assertIsNone(rim.__im_creator__)
-        self.assertIsNone(rim.__im_comment__)
-        self.assertIsNone(rim.__im_manager__)
+        with revisioned.RevisionedImmutableBase.__im_create__() as factory:
+            im = factory()
+        self.assertEqual(im.__im_version__, 0)
+        self.assertIsNone(im.__im_start_on__)
+        self.assertIsNone(im.__im_end_on__)
+        self.assertIsNone(im.__im_creator__)
+        self.assertIsNone(im.__im_comment__)
+        self.assertIsNone(im.__im_manager__)
 
     def test_im_update(self):
-        im = revisioned.RevisionedImmutableBase()
+        with revisioned.RevisionedImmutableBase.__im_create__() as factory:
+            im = factory()
         with im.__im_update__(creator='universe', comment='Get answer') as im2:
             im2.answer = 42
         self.assertIsNot(im, im2)
@@ -46,7 +44,8 @@ class RevisionedImmutableBaseTest(unittest.TestCase):
         self.assertEqual(im2.__im_comment__, 'Get answer')
 
     def test_im_update_withManager(self):
-        im = revisioned.RevisionedImmutableBase()
+        with revisioned.RevisionedImmutableBase.__im_create__() as factory:
+            im = factory()
         im.__im_manager__ = manager = mock.Mock()
         with im.__im_update__() as im2:
             im2.answer = 42
@@ -55,13 +54,16 @@ class RevisionedImmutableBaseTest(unittest.TestCase):
         self.assertEqual(manager.addRevision.call_args, ((im2,), {'old': im}))
 
     def test_im_update_withTransientImmutable(self):
-        im = revisioned.RevisionedImmutableBase(im_finalize=False)
+        with revisioned.RevisionedImmutableBase.__im_create__(
+                finalize=False) as factory:
+            im = factory()
         with im.__im_update__() as im2:
             pass
         self.assertIs(im, im2)
 
     def test_im_update_withNestedUpdates(self):
-        im = revisioned.RevisionedImmutableBase()
+        with revisioned.RevisionedImmutableBase.__im_create__() as factory:
+            im = factory()
         with im.__im_update__() as im2:
             with im2.__im_update__() as im3:
                 pass
@@ -70,26 +72,24 @@ class RevisionedImmutableBaseTest(unittest.TestCase):
         self.assertIs(im2, im3)
 
     def test_im_update_withSlave(self):
-        im = revisioned.RevisionedImmutableBase(
-            im_mode=interfaces.IM_MODE_SLAVE)
+        with revisioned.RevisionedImmutableBase.__im_create__(
+                mode=interfaces.IM_MODE_SLAVE) as factory:
+            im = factory()
         with self.assertRaises(AttributeError):
-            with im.__im_update__() as im2:
+            with im.__im_update__():
                 pass
 
     def test_im_update_withException(self):
-        im = revisioned.RevisionedImmutableBase()
+        with revisioned.RevisionedImmutableBase.__im_create__() as factory:
+            im = factory()
         with self.assertRaises(RuntimeError):
-            with im.__im_update__() as im2:
+            with im.__im_update__():
                 raise RuntimeError(None)
 
 
 class RevisionedImmutableTest(unittest.TestCase):
 
     def test_verifyInterface(self):
-        self.assertTrue(
-            verify.verifyClass(
-                interfaces.IImmutable,
-                revisioned.RevisionedImmutable))
         self.assertTrue(
             verify.verifyClass(
                 interfaces.IRevisionedImmutable,
@@ -112,23 +112,27 @@ class RevisionedImmutableTest(unittest.TestCase):
             # omit __init__ here
             pass
 
-        question = Question(42)
+        with Question.__im_create__() as factory:
+            question = factory(42)
         self.assertEqual(question.answer, 42)
         self.assertEqual(question.__im_mode__, interfaces.IM_MODE_MASTER)
         self.assertEqual(question.__im_state__, interfaces.IM_STATE_LOCKED)
 
-        question = Question(
-            42, im_finalize=False, im_mode=interfaces.IM_MODE_SLAVE)
+        with Question.__im_create__(
+                finalize=False, mode=interfaces.IM_MODE_SLAVE) as factory:
+            question = factory(42)
         self.assertEqual(question.answer, 42)
         self.assertEqual(question.__im_mode__, interfaces.IM_MODE_SLAVE)
         self.assertEqual(question.__im_state__, interfaces.IM_STATE_TRANSIENT)
 
-        answer = Answer()
+        with Answer.__im_create__() as factory:
+            answer = factory()
         self.assertEqual(answer.__im_mode__, interfaces.IM_MODE_MASTER)
         self.assertEqual(answer.__im_state__, interfaces.IM_STATE_LOCKED)
 
-        answer = Answer(
-            im_finalize=False, im_mode=interfaces.IM_MODE_SLAVE)
+        with Answer.__im_create__(
+                finalize=False, mode=interfaces.IM_MODE_SLAVE) as factory:
+            answer = factory()
         self.assertEqual(answer.__im_mode__, interfaces.IM_MODE_SLAVE)
         self.assertEqual(answer.__im_state__, interfaces.IM_STATE_TRANSIENT)
 
@@ -147,7 +151,8 @@ class SimpleRevisionedImmutableManagerTest(unittest.TestCase):
 
     def test_getCurrentRevision(self):
         rimm = revisioned.SimpleRevisionedImmutableManager()
-        rim = revisioned.RevisionedImmutable()
+        with revisioned.RevisionedImmutable.__im_create__() as factory:
+            rim = factory()
         rimm.addRevision(rim)
         self.assertIs(rimm.getCurrentRevision(), rim)
 
@@ -157,27 +162,31 @@ class SimpleRevisionedImmutableManagerTest(unittest.TestCase):
 
     def test_getCurrentRevision_noActiveLastRevisions(self):
         rimm = revisioned.SimpleRevisionedImmutableManager()
-        rim = revisioned.RevisionedImmutable()
+        with revisioned.RevisionedImmutable.__im_create__() as factory:
+            rim = factory()
         rimm.addRevision(rim)
         rim.__im_end_on__ = rim.__im_start_on__
         self.assertIsNone(rimm.getCurrentRevision())
 
     def test_getNumberOfRevisions(self):
         rimm = revisioned.SimpleRevisionedImmutableManager()
-        rim = revisioned.RevisionedImmutable()
+        with revisioned.RevisionedImmutable.__im_create__() as factory:
+            rim = factory()
         self.assertEqual(rimm.getNumberOfRevisions(), 0)
         rimm.addRevision(rim)
         self.assertEqual(rimm.getNumberOfRevisions(), 1)
 
     def test_getRevisionHistory(self):
         rimm = revisioned.SimpleRevisionedImmutableManager()
-        rim = revisioned.RevisionedImmutable()
+        with revisioned.RevisionedImmutable.__im_create__() as factory:
+            rim = factory()
         rimm.addRevision(rim)
         self.assertListEqual(list(rimm.getRevisionHistory()), [rim])
 
     def test_getRevisionHistory_withCreator(self):
         rimm = revisioned.SimpleRevisionedImmutableManager()
-        rim = revisioned.RevisionedImmutable()
+        with revisioned.RevisionedImmutable.__im_create__() as factory:
+            rim = factory()
         rimm.addRevision(rim)
         with rim.__im_update__(creator='someone') as rim2:
             pass
@@ -186,7 +195,8 @@ class SimpleRevisionedImmutableManagerTest(unittest.TestCase):
 
     def test_getRevisionHistory_withComment(self):
         rimm = revisioned.SimpleRevisionedImmutableManager()
-        rim = revisioned.RevisionedImmutable()
+        with revisioned.RevisionedImmutable.__im_create__() as factory:
+            rim = factory()
         rimm.addRevision(rim)
         with rim.__im_update__(comment='Some important update') as rim2:
             pass
@@ -196,10 +206,11 @@ class SimpleRevisionedImmutableManagerTest(unittest.TestCase):
     def test_getRevisionHistory_withStartBefore(self):
         rimm = revisioned.SimpleRevisionedImmutableManager()
         rimm.now = lambda: datetime.datetime(2020, 1, 1)
-        rim = revisioned.RevisionedImmutable()
+        with revisioned.RevisionedImmutable.__im_create__() as factory:
+            rim = factory()
         rimm.addRevision(rim)
         rimm.now = now = lambda: datetime.datetime(2020, 1, 2)
-        with rim.__im_update__(comment='Some important update') as rim2:
+        with rim.__im_update__(comment='Some important update'):
             pass
         self.assertListEqual(
             list(rimm.getRevisionHistory(startBefore=now())), [rim])
@@ -207,7 +218,8 @@ class SimpleRevisionedImmutableManagerTest(unittest.TestCase):
     def test_getRevisionHistory_withStartAfter(self):
         rimm = revisioned.SimpleRevisionedImmutableManager()
         rimm.now = now = lambda: datetime.datetime(2020, 1, 1)
-        rim = revisioned.RevisionedImmutable()
+        with revisioned.RevisionedImmutable.__im_create__() as factory:
+            rim = factory()
         rimm.addRevision(rim)
         rimm.now = lambda: datetime.datetime(2020, 1, 2)
         with rim.__im_update__(comment='Some important update') as rim2:
@@ -217,7 +229,8 @@ class SimpleRevisionedImmutableManagerTest(unittest.TestCase):
 
     def test_getRevisionHistory_withReversed(self):
         rimm = revisioned.SimpleRevisionedImmutableManager()
-        rim = revisioned.RevisionedImmutable()
+        with revisioned.RevisionedImmutable.__im_create__() as factory:
+            rim = factory()
         rimm.addRevision(rim)
         with rim.__im_update__(creator='someone') as rim2:
             pass
@@ -226,7 +239,8 @@ class SimpleRevisionedImmutableManagerTest(unittest.TestCase):
 
     def test_getRevisionHistory_withBatching(self):
         rimm = revisioned.SimpleRevisionedImmutableManager()
-        rim = revisioned.RevisionedImmutable()
+        with revisioned.RevisionedImmutable.__im_create__() as factory:
+            rim = factory()
         rimm.addRevision(rim)
         with rim.__im_update__(creator='someone') as rim2:
             pass
@@ -234,7 +248,7 @@ class SimpleRevisionedImmutableManagerTest(unittest.TestCase):
             pass
         with rim3.__im_update__(creator='someone') as rim4:
             pass
-        with rim4.__im_update__(creator='someone') as rim5:
+        with rim4.__im_update__(creator='someone'):
             pass
         self.assertListEqual(
             list(rimm.getRevisionHistory(batchSize=2)),
@@ -245,7 +259,8 @@ class SimpleRevisionedImmutableManagerTest(unittest.TestCase):
 
     def test_rollbackToRevision(self):
         rimm = revisioned.SimpleRevisionedImmutableManager()
-        rim = revisioned.RevisionedImmutable()
+        with revisioned.RevisionedImmutable.__im_create__() as factory:
+            rim = factory()
         rimm.addRevision(rim)
         with rim.__im_update__() as rim2:
             pass
@@ -259,13 +274,15 @@ class SimpleRevisionedImmutableManagerTest(unittest.TestCase):
 
     def test_rollbackToRevision_unknownRevision(self):
         rimm = revisioned.SimpleRevisionedImmutableManager()
-        rim = revisioned.RevisionedImmutable()
+        with revisioned.RevisionedImmutable.__im_create__() as factory:
+            rim = factory()
         with self.assertRaises(ValueError):
             rimm.rollbackToRevision(rim)
 
     def test_rollbackToRevision_noActivation(self):
         rimm = revisioned.SimpleRevisionedImmutableManager()
-        rim = revisioned.RevisionedImmutable()
+        with revisioned.RevisionedImmutable.__im_create__() as factory:
+            rim = factory()
         rimm.addRevision(rim)
         with rim.__im_update__() as rim2:
             pass
@@ -279,7 +296,8 @@ class SimpleRevisionedImmutableManagerTest(unittest.TestCase):
 
     def test_addRevision(self):
         rimm = revisioned.SimpleRevisionedImmutableManager()
-        rim = revisioned.RevisionedImmutable()
+        with revisioned.RevisionedImmutable.__im_create__() as factory:
+            rim = factory()
         rimm.addRevision(rim)
         self.assertListEqual(rimm.__data__, [rim])
         self.assertIsNotNone(rim.__im_start_on__)
@@ -287,7 +305,8 @@ class SimpleRevisionedImmutableManagerTest(unittest.TestCase):
 
     def test_addRevision_withOld(self):
         rimm = revisioned.SimpleRevisionedImmutableManager()
-        rim = revisioned.RevisionedImmutable()
+        with revisioned.RevisionedImmutable.__im_create__() as factory:
+            rim = factory()
         rim2 = rim.__im_clone__()
         rimm.addRevision(rim, old=rim2)
         self.assertListEqual(rimm.__data__, [rim])
@@ -305,7 +324,9 @@ class RevisionedMappingTest(unittest.TestCase):
 
     def test_getRevisionManager(self):
         map = revisioned.RevisionedMapping()
-        map['q1'] = q1 = revisioned.RevisionedImmutable()
+        with revisioned.RevisionedImmutable.__im_create__() as factory:
+            q1 = factory()
+        map['q1'] = q1
         rimm = map.getRevisionManager('q1')
         self.assertIn(q1, rimm.__data__)
 
@@ -320,22 +341,30 @@ class RevisionedMappingTest(unittest.TestCase):
 
     def test_iter(self):
         map = revisioned.RevisionedMapping()
-        map['q1'] = revisioned.RevisionedImmutable()
+        with revisioned.RevisionedImmutable.__im_create__() as factory:
+            q1 = factory()
+        map['q1'] = q1
         self.assertListEqual(list(iter(map)), ['q1'])
 
     def test_getitem(self):
         map = revisioned.RevisionedMapping()
-        map['q1'] = q1 = revisioned.RevisionedImmutable()
+        with revisioned.RevisionedImmutable.__im_create__() as factory:
+            q1 = factory()
+        map['q1'] = q1
         self.assertIs(map['q1'], q1)
 
     def test_setitem(self):
         map = revisioned.RevisionedMapping()
-        map['q1'] = q1 = revisioned.RevisionedImmutable()
+        with revisioned.RevisionedImmutable.__im_create__() as factory:
+            q1 = factory()
+        map['q1'] = q1
         self.assertListEqual(map.__data__['q1'].__data__, [q1])
 
     def test_delitem(self):
         map = revisioned.RevisionedMapping()
-        map['q1'] = revisioned.RevisionedImmutable()
+        with revisioned.RevisionedImmutable.__im_create__() as factory:
+            q1 = factory()
+        map['q1'] = q1
         self.assertIn('q1', map.__data__)
         del map['q1']
         self.assertNotIn('q1', map.__data__)
@@ -353,7 +382,9 @@ class RevisionedFunctionalTest(unittest.TestCase):
 
     def test_functional(self):
         map = revisioned.RevisionedMapping()
-        map['everything'] = question = self.Question('The answer to everything')
+        with self.Question.__im_create__() as factory:
+            question = factory('The answer to everything')
+        map['everything'] = question
 
         # The question is the current revision and has been added to the
         # container.

@@ -74,17 +74,20 @@ class ImmutableBase:
         # All dict types are automatically converted to their immutable
         # equivalent.
         if isinstance(object, interfaces.DICT_TYPES):
-            return ImmutableDict(object, im_finalize=False, im_mode=mode)
+            with ImmutableDict.__im_create__(finalize=False, mode=mode) as fac:
+                return fac(object)
 
         # All list types are automatically converted to their immutable
         # equivalent.
         if isinstance(object, interfaces.LIST_TYPES):
-             return ImmutableList(object, im_finalize=False, im_mode=mode)
+            with ImmutableList.__im_create__(finalize=False, mode=mode) as fac:
+                return fac(object)
 
         # All set types are automatically converted to their immutable
         # equivalent.
         if isinstance(object, interfaces.SET_TYPES):
-            return ImmutableSet(object, im_finalize=False, im_mode=mode)
+            with ImmutableSet.__im_create__(finalize=False, mode=mode) as fac:
+                return fac(object)
 
         # Get the object's equivalent immutable.
         if hasattr(object, '__im_get__'):
@@ -123,7 +126,7 @@ class ImmutableBase:
             if interfaces.IImmutable.providedBy(subobj):
                 subobj.__im_set_state__(state)
 
-    def __im_after_create__(self):
+    def __im_after_create__(self, *args, **kw):
         pass
 
     def __im_before_update__(self, clone):
@@ -134,20 +137,17 @@ class ImmutableBase:
 
     @classmethod
     @contextmanager
-    def __im_create__(cls, mode=None, finalize=True, *args, **kw):
+    def __im_create__(cls, mode=None, finalize=True, *create_args, **create_kw):
 
         def factory(*args, **kw):
             obj = cls(*args, **kw)
-            obj.__im_after_create__(*args, **kw)
+            obj.__im_after_create__(*create_args, **create_kw)
             factory.created += (obj,)
             return obj
 
         factory.created = ()
 
-        try:
-            yield factory
-        except:
-            raise
+        yield factory
 
         for obj in factory.created:
             if mode is not None:
@@ -172,10 +172,7 @@ class ImmutableBase:
         assert clone.__im_state__ == interfaces.IM_STATE_TRANSIENT
 
         self.__im_before_update__(clone, *args, **kw)
-        try:
-            yield clone
-        except:
-            raise
+        yield clone
         clone.__im_finalize__()
         self.__im_after_update__(clone, *args, **kw)
 
@@ -223,7 +220,7 @@ class ImmutableDict(ImmutableBase, collections.UserDict):
             key: self.__im_conform__(value)
             for key, value in self.data.items()
         }
-        dct = self.__class__(im_finalize=False)
+        dct = self.__class__()
         dct.data.update(newdata)
         return dct
 
@@ -256,8 +253,9 @@ class ImmutableDict(ImmutableBase, collections.UserDict):
         # produced.
         assert self.__im_state__ == interfaces.IM_STATE_LOCKED
         # Returns a shallow copy, which allows a simple transfer of data.
-        copy = self.__class__()
-        copy.data = self.data.copy()
+        with self.__im_create__() as factory:
+            copy = factory()
+            copy.data = self.data.copy()
         return copy
 
     @failOnNonTransient
@@ -286,10 +284,10 @@ class ImmutableDict(ImmutableBase, collections.UserDict):
 
     @classmethod
     def fromkeys(cls, iterable, value=None):
-        dct = cls(im_finalize=False)
-        for key in iterable:
-            dct[key] = value
-        dct.__im_finalize__()
+        with cls.__im_create__() as factory:
+            dct = factory()
+            for key in iterable:
+                dct[key] = value
         return dct
 
     def __getstate__(self):
@@ -320,7 +318,7 @@ class ImmutableSet(ImmutableBase, collections.abc.MutableSet):
     def __im_clone__(self):
         # Create an exact clone of the current object.
         newdata = set([self.__im_conform__(value) for value in self.__data__])
-        rset = self.__class__(im_finalize=False)
+        rset = self.__class__()
         rset.__data__.update(newdata)
         return rset
 
@@ -371,7 +369,7 @@ class ImmutableList(ImmutableBase, collections.UserList):
     def __im_clone__(self):
         # Create an exact clone of the current object.
         newdata = [self.__im_conform__(value) for value in self.data]
-        clone = self.__class__(im_finalize=False)
+        clone = self.__class__()
         clone.data.extend(newdata)
         return clone
 
@@ -399,8 +397,9 @@ class ImmutableList(ImmutableBase, collections.UserList):
         # produced.
         assert self.__im_state__ == interfaces.IM_STATE_LOCKED
         # Returns a shallow copy, which allows a simple transfer of data.
-        copy = self.__class__()
-        copy.data = self.data.copy()
+        with self.__im_create__() as factory:
+            copy = factory()
+            copy.data = self.data.copy()
         return copy
 
     @failOnNonTransient

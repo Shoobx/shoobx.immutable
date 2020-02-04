@@ -8,7 +8,6 @@
 import collections.abc
 import datetime
 import zope.interface
-from contextlib import contextmanager
 
 from shoobx.immutable import immutable, interfaces
 
@@ -80,9 +79,11 @@ class SimpleRevisionedImmutableManager:
                 if (obj.__im_comment__ is not None and
                     comment in obj.__im_comment__)]
         if startBefore is not None:
-            result = [obj for obj in result if obj.__im_start_on__ < startBefore]
+            result = [obj for obj in result
+                      if obj.__im_start_on__ < startBefore]
         if startAfter is not None:
-            result = [obj for obj in result if obj.__im_start_on__ > startAfter]
+            result = [obj for obj in result
+                      if obj.__im_start_on__ > startAfter]
 
         # 3. Setup ordering
         if reversed:
@@ -104,7 +105,7 @@ class SimpleRevisionedImmutableManager:
 
         new.__im_start_on__ = now
         new.__im_manager__ = self
-        assert new.__im_state__ == interfaces.IM_STATE_LOCKED
+        assert new.__im_state__ == interfaces.IM_STATE_LOCKED, new.__im_state__
         self.__data__.append(new)
 
     def rollbackToRevision(self, revision, activate=True):

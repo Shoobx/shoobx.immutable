@@ -18,5 +18,9 @@ test-coverage: ve/bin/zope-testrunner
 	ve/bin/coverage run ve/bin/zope-testrunner -vpc1 --all --test-path=${PWD}/src
 	ve/bin/coverage report -m --include="src/shoobx/immutable/*" --omit="test*"
 
+.PHONY: lint
+lint:
+	ve/bin/flake8 ./src/
+
 clean:
 	rm -rf ve .tox .coverage coverage.xml

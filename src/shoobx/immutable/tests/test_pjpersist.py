@@ -98,20 +98,18 @@ class ImmutableTest(unittest.TestCase):
     def test_verifyInterface(self):
         self.assertTrue(
             verify.verifyClass(
-                interfaces.IImmutable,
-                pjpersist.Immutable))
-        self.assertTrue(
-            verify.verifyClass(
                 interfaces.IRevisionedImmutable,
                 pjpersist.Immutable))
 
     def test_im_manager(self):
-        im = pjpersist.Immutable()
+        with pjpersist.Immutable.__im_create__() as factory:
+            im = factory()
         im.__parent__ = parent = object()
         self.assertIs(im.__im_manager__, parent)
 
     def test_im_is_internal_attr(self):
-        im = pjpersist.Immutable()
+        with pjpersist.Immutable.__im_create__() as factory:
+            im = factory()
         self.assertTrue(im.__im_is_internal_attr__('_p_oid'))
         self.assertTrue(im.__im_is_internal_attr__('_v_name'))
         self.assertTrue(im.__im_is_internal_attr__('__name__'))
@@ -119,7 +117,8 @@ class ImmutableTest(unittest.TestCase):
         self.assertFalse(im.__im_is_internal_attr__('answer'))
 
     def test_im_clone(self):
-        im = pjpersist.Immutable(im_finalize=False)
+        with pjpersist.Immutable.__im_create__(finalize=False) as factory:
+            im = factory()
         im.answer = 42
         im._p_oid = 1
         clone = im.__im_clone__()
@@ -127,7 +126,8 @@ class ImmutableTest(unittest.TestCase):
         self.assertIsNone(clone._p_oid)
 
     def test_pj_get_column_fields(self):
-        im = pjpersist.Immutable(im_finalize=False)
+        with pjpersist.Immutable.__im_create__(finalize=False) as factory:
+            im = factory()
         im.name = 'question'
         im.__im_start_on__ = datetime.datetime(2019, 5, 29, 2, 0)
         im.__im_end_on__ = datetime.datetime(2019, 5, 29, 3, 0)
@@ -146,26 +146,31 @@ class ImmutableTest(unittest.TestCase):
         )
 
     def test_getstate(self):
-        im = pjpersist.Immutable(im_finalize=False)
+        with pjpersist.Immutable.__im_create__(finalize=False) as factory:
+            im = factory()
         im.name = 'question'
         im.answer = 42
         im.__im_start_on__ = datetime.datetime(2019, 5, 29, 2, 0)
         self.assertDictEqual(
             im.__getstate__(),
             {
+                '__im_comment__': None,
+                '__im_creator__': None,
                 '__im_start_on__': datetime.datetime(2019, 5, 29, 2, 0),
                 'name': 'question',
                 'answer': 42,
             })
 
     def test_setstate(self):
-        im = pjpersist.Immutable(im_finalize=False)
+        with pjpersist.Immutable.__im_create__(finalize=False) as factory:
+            im = factory()
         im.__setstate__({'name': 'question', 'answer': 42, })
         self.assertEqual(im.name, 'question')
         self.assertEqual(im.answer, 42)
 
     def test_repr(self):
-        im = pjpersist.Immutable(im_finalize=False)
+        with pjpersist.Immutable.__im_create__(finalize=False) as factory:
+            im = factory()
         im.__name__ = 'question'
         im._p_oid = '012789abcdef'
         self.assertEqual(
@@ -205,7 +210,7 @@ class ImmutableContainerTest(unittest.TestCase):
         flt = self.cont._pj_get_resolve_filter()
         self.assertEqual(
             flt.__sqlrepr__('postgres'),
-            "(((table.data) ? ('name')) AND ((table.endOn) IS NULL))"
+            "((table.endOn) IS NULL)"
         )
 
     def test_load_one(self):
@@ -249,7 +254,8 @@ class ImmutableDatabaseTest(testing.PJTestCase):
         self.questions = Questions()
 
     def test_raw_find(self):
-        q1 = Question('What is the answer')
+        with Question.__im_create__() as factory:
+            q1 = factory('What is the answer')
         self.questions.add(q1)
         with q1.__im_update__(comment='Provide Answer') as q2:
             q2.answer = 42
@@ -263,14 +269,16 @@ class ImmutableDatabaseTest(testing.PJTestCase):
             list(result[0].keys()), ['id', 'name', 'data', 'comment'])
 
     def test_getCurrentRevision(self):
-        q = Question('What is the answer')
+        with Question.__im_create__() as factory:
+            q = factory('What is the answer')
         self.questions.add(q)
         transaction.commit()
         cur = self.questions.getCurrentRevision(q)
         self.assertEqual(q._p_oid, cur._p_oid)
 
     def test_getRevision(self):
-        q = Question('What is the answer')
+        with Question.__im_create__() as factory:
+            q = factory('What is the answer')
         self.questions.add(q)
         with q.__im_update__() as q2:
             pass
@@ -280,13 +288,15 @@ class ImmutableDatabaseTest(testing.PJTestCase):
             self.questions.getRevision(q.__name__, 1), q2)
 
     def test_getNumberOfRevisions(self):
-        q = Question('What is the answer')
+        with Question.__im_create__() as factory:
+            q = factory('What is the answer')
         self.questions.add(q)
         transaction.commit()
         self.assertEqual(self.questions.getNumberOfRevisions(q), 1)
 
     def test_getRevisionHistory(self):
-        q = Question('What is the answer')
+        with Question.__im_create__() as factory:
+            q = factory('What is the answer')
         self.questions.add(q)
         transaction.commit()
         history = list(self.questions.getRevisionHistory(q))
@@ -294,7 +304,8 @@ class ImmutableDatabaseTest(testing.PJTestCase):
         self.assertEqual(q._p_oid, history[0]._p_oid)
 
     def test_getRevisionHistory_withCreator(self):
-        q = Question('What is the answer')
+        with Question.__im_create__() as factory:
+            q = factory('What is the answer')
         self.questions.add(q)
         with q.__im_update__(creator='someone') as q2:
             pass
@@ -303,7 +314,8 @@ class ImmutableDatabaseTest(testing.PJTestCase):
             [q2])
 
     def test_getRevisionHistory_withComment(self):
-        q = Question('What is the answer')
+        with Question.__im_create__() as factory:
+            q = factory('What is the answer')
         self.questions.add(q)
         with q.__im_update__(comment='Some important update') as q2:
             pass
@@ -312,18 +324,20 @@ class ImmutableDatabaseTest(testing.PJTestCase):
             [q2])
 
     def test_getRevisionHistory_withStartBefore(self):
-        q = Question('What is the answer')
+        with Question.__im_create__() as factory:
+            q = factory('What is the answer')
         self.questions.now = lambda: datetime.datetime(2020, 1, 1)
         self.questions.add(q)
         self.questions.now = now = lambda: datetime.datetime(2020, 1, 2)
-        with q.__im_update__(comment='Some important update') as q2:
+        with q.__im_update__(comment='Some important update'):
             pass
         self.assertListEqual(
             list(self.questions.getRevisionHistory(q, startBefore=now())),
             [q])
 
     def test_getRevisionHistory_withStartAfter(self):
-        q = Question('What is the answer')
+        with Question.__im_create__() as factory:
+            q = factory('What is the answer')
         self.questions.now = now = lambda: datetime.datetime(2020, 1, 1)
         self.questions.add(q)
         self.questions.now = lambda: datetime.datetime(2020, 1, 2)
@@ -334,8 +348,9 @@ class ImmutableDatabaseTest(testing.PJTestCase):
             [q2])
 
     def test_getRevisionHistory_withReversed(self):
-        q = Question('What is the answer')
-        self.questions.now = now = lambda: datetime.datetime(2020, 1, 1)
+        with Question.__im_create__() as factory:
+            q = factory('What is the answer')
+        self.questions.now = lambda: datetime.datetime(2020, 1, 1)
         self.questions.add(q)
         with q.__im_update__(creator='someone') as q2:
             pass
@@ -344,8 +359,9 @@ class ImmutableDatabaseTest(testing.PJTestCase):
             [q2, q])
 
     def test_getRevisionHistory_withBatching(self):
-        q = Question('What is the answer')
-        self.questions.now = now = lambda: datetime.datetime(2020, 1, 1)
+        with Question.__im_create__() as factory:
+            q = factory('What is the answer')
+        self.questions.now = lambda: datetime.datetime(2020, 1, 1)
         self.questions.add(q)
         with q.__im_update__() as q2:
             pass
@@ -353,7 +369,7 @@ class ImmutableDatabaseTest(testing.PJTestCase):
             pass
         with q3.__im_update__() as q4:
             pass
-        with q4.__im_update__() as q5:
+        with q4.__im_update__():
             pass
         self.assertListEqual(
             list(self.questions.getRevisionHistory(q, batchSize=2)),
@@ -364,7 +380,8 @@ class ImmutableDatabaseTest(testing.PJTestCase):
             [q3, q4])
 
     def test_rollbackToRevision(self):
-        q1 = Question('What is the answer')
+        with Question.__im_create__() as factory:
+            q1 = factory('What is the answer')
         self.questions.add(q1)
         with q1.__im_update__() as q2:
             q2.answer = 42
@@ -372,7 +389,8 @@ class ImmutableDatabaseTest(testing.PJTestCase):
         self.assertEqual(
             self.questions.getCurrentRevision(q1)._p_oid, q2._p_oid)
 
-        anotherq = Question('Another trivia')
+        with Question.__im_create__() as factory:
+            anotherq = factory('Another trivia')
         self.questions.add(anotherq)
 
         with anotherq.__im_update__() as anotherq2:
@@ -394,7 +412,8 @@ class ImmutableDatabaseTest(testing.PJTestCase):
         self.assertEqual(anotherCur._p_oid, anotherq3._p_oid)
 
     def test_rollbackToRevision_doNotActivate(self):
-        q1 = Question('What is the answer')
+        with Question.__im_create__() as factory:
+            q1 = factory('What is the answer')
         self.questions.add(q1)
         with q1.__im_update__() as q2:
             q2.answer = 42
@@ -402,10 +421,11 @@ class ImmutableDatabaseTest(testing.PJTestCase):
         self.questions.rollbackToRevision(q1, activate=False)
         transaction.commit()
         with self.assertRaises(KeyError):
-            cur = self.questions.getCurrentRevision(q1)
+            self.questions.getCurrentRevision(q1)
 
     def test_addRevision(self):
-        q1 = Question('What is the answer')
+        with Question.__im_create__() as factory:
+            q1 = factory('What is the answer')
         self.questions.add(q1)
         q2 = q1.__im_clone__()
         self.questions.addRevision(q2, old=q1)
@@ -415,7 +435,8 @@ class ImmutableDatabaseTest(testing.PJTestCase):
         self.assertIsNone(q2.__im_end_on__)
 
     def test_functional(self):
-        q = Question('What is the answer')
+        with Question.__im_create__() as factory:
+            q = factory('What is the answer')
         self.questions.add(q)
         self.assertEqual(len(self.questions), 1)
 
@@ -460,7 +481,8 @@ class ImmutableDatabaseTest(testing.PJTestCase):
         self.assertEqual(rev1._p_oid.id, q._p_oid.id)
 
     def test_delete(self):
-        q1 = Question('What is the answer')
+        with Question.__im_create__() as factory:
+            q1 = factory('What is the answer')
         self.questions.add(q1)
         self.assertEqual(len(self.questions), 1)
         with q1.__im_update__() as q2:
@@ -469,7 +491,8 @@ class ImmutableDatabaseTest(testing.PJTestCase):
         self.assertEqual(len(self.questions), 1)
         self.assertEqual(q1.__name__, q2.__name__)
 
-        anotherq = Question('Another trivia')
+        with Question.__im_create__() as factory:
+            anotherq = factory('Another trivia')
         self.questions.add(anotherq)
 
         with anotherq.__im_update__() as anotherq2:
@@ -504,7 +527,8 @@ class ImmutableDatabaseTest(testing.PJTestCase):
         # just in case we have the same `name` in more Transient containers
         qnsMath = TransientCategorizedQuestions('math')
 
-        qMath1 = Question('1+1', '2', 'math')
+        with Question.__im_create__() as factory:
+            qMath1 = factory('1+1', '2', 'math')
         qMath1.name = 'basic'
         qnsMath.add(qMath1)
         transaction.commit()
@@ -512,7 +536,8 @@ class ImmutableDatabaseTest(testing.PJTestCase):
             qMath1.answer = 2
         transaction.commit()
 
-        qMath2 = Question('5*4', '20', 'math')
+        with Question.__im_create__() as factory:
+            qMath2 = factory('5*4', '20', 'math')
         qMath2.name = 'second'
         qnsMath.add(qMath2)
         transaction.commit()
@@ -521,7 +546,8 @@ class ImmutableDatabaseTest(testing.PJTestCase):
         transaction.commit()
 
         qnsLang = TransientCategorizedQuestions('language')
-        qLang1 = Question('table', 'der tisch', 'language')
+        with Question.__im_create__() as factory:
+            qLang1 = factory('table', 'der tisch', 'language')
         qLang1.name = 'basic'
         qnsLang.add(qLang1)
         transaction.commit()
@@ -529,16 +555,19 @@ class ImmutableDatabaseTest(testing.PJTestCase):
             qLang1.answer = 'der Tisch'
         transaction.commit()
 
-        qLang2 = Question('window', 'das Fenster', 'language')
+        with Question.__im_create__() as factory:
+            qLang2 = factory('window', 'das Fenster', 'language')
         qLang2.name = 'second'
         qnsLang.add(qLang2)
         transaction.commit()
 
-        qLang3 = Question('world', 'die Welt', 'language')
+        with Question.__im_create__() as factory:
+            qLang3 = factory('world', 'die Welt', 'language')
         qnsLang.add(qLang3)
         transaction.commit()
 
-        qHist1 = Question('Rome founded', '21 April 753', 'history')
+        with Question.__im_create__() as factory:
+            qHist1 = factory('Rome founded', '21 April 753', 'history')
         with qHist1.__im_update__() as qHist1:
             qHist1.answer = '21 April 753 BCE'
         qnsHist = TransientCategorizedQuestions('history')

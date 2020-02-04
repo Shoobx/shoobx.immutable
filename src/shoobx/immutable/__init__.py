@@ -1,4 +1,5 @@
 # Re-export.
+# flake8: noqa
 
 from .immutable import ImmutableBase, Immutable, update
 from .immutable import ImmutableList, ImmutableSet, ImmutableDict

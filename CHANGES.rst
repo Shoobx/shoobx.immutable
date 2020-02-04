@@ -3,10 +3,20 @@ CHANGES
 =======
 
 
-1.3.2 (unreleased)
+1.4.0 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Changed the pattern of creating an immutable object to a context manager.
+  NOTE, just creating an object like `Immutable()` will give you a transient
+  object.
+  The preferred pattern is:
+
+  >>> import shoobx.immutable as im
+  >>> with im.create(im.Immutable) as factory:
+  ...     imObj = factory()
+
+  This makes it way easier to set initial attributes.
+  See README.rst and docs and tests for details.
 
 
 1.3.1 (2020-02-10)
