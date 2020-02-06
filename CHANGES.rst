@@ -6,7 +6,9 @@ CHANGES
 1.2.2 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Fix `ImmutableContainer.__delitem__` : it ignored the filters added by
+  `_pj_get_resolve_filter` of the subclasses of ImmutableContainer.
+  That could have deleted objects of the same name.
 
 
 1.2.1 (2020-02-02)
