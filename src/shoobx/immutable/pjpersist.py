@@ -114,17 +114,16 @@ class ImmutableContainer(pjcontainer.AllItemsPJContainer):
     def _p_pj_table(self):
         return self._pj_table
 
+    def _pj_get_resolve_filter_all_versions(self):
+        # Return a query that matches all versions, not just the current one
+        # as opposed to `_pj_get_resolve_filter`.
+        return super()._pj_get_resolve_filter()
+
     def _pj_get_resolve_filter(self):
-        # return a filter that matches ONLY the current version
+        # Return a filter that matches ONLY the current version.
         qry = self._pj_get_resolve_filter_all_versions()
         endOnFld = sb.Field(self._pj_table, 'endOn')
         return self._combine_filters(qry, endOnFld == None)
-
-    def _pj_get_resolve_filter_all_versions(self):
-        # return a query that matches all versions, not just the current one
-        # as opposed to _pj_get_resolve_filter
-        qry = super()._pj_get_resolve_filter()
-        return qry
 
     def _load_one(self, id, doc, use_cache=True):
         obj = super()._load_one(id, doc, use_cache=use_cache)

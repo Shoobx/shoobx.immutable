@@ -3,12 +3,19 @@ CHANGES
 =======
 
 
-1.2.2 (unreleased)
+1.3.0 (unreleased)
 ------------------
 
-- Fix `ImmutableContainer.__delitem__` : it ignored the filters added by
-  `_pj_get_resolve_filter` of the subclasses of ImmutableContainer.
-  That could have deleted objects of the same name.
+- Fix `ImmutableContainer.__delitem__` : In order to delete all revisions of
+  an object, the delete method used an internal super() call to get query
+  filters. That ended up ignoring subclass filters causing deletes across
+  contianer boundaries.
+
+  As a solution, a new `_pj_get_resolve_filter_all_versions` method has been
+  introduced to return a query for all versions within a container. The
+  `_pj_get_resolve_filter` method now uses the other one and simply adds the
+  "latest version" constraint. All sub-containers should now override
+  `_pj_get_resolve_filter_all_versions` instead of ``_pj_get_resolve_filter`.
 
 
 1.2.1 (2020-02-02)
