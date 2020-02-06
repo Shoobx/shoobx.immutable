@@ -15,7 +15,7 @@ CHANGES
   introduced to return a query for all versions within a container. The
   `_pj_get_resolve_filter` method now uses the other one and simply adds the
   "latest version" constraint. All sub-containers should now override
-  `_pj_get_resolve_filter_all_versions` instead of ``_pj_get_resolve_filter`.
+  `_pj_get_resolve_filter_all_versions` instead of `_pj_get_resolve_filter`.
 
 
 1.2.1 (2020-02-02)
