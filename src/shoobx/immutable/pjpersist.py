@@ -114,8 +114,14 @@ class ImmutableContainer(pjcontainer.AllItemsPJContainer):
     def _p_pj_table(self):
         return self._pj_table
 
+    def _pj_get_resolve_filter_all_versions(self):
+        # Return a query that matches all versions, not just the current one
+        # as opposed to `_pj_get_resolve_filter`.
+        return super()._pj_get_resolve_filter()
+
     def _pj_get_resolve_filter(self):
-        qry = super()._pj_get_resolve_filter()
+        # Return a filter that matches ONLY the current version.
+        qry = self._pj_get_resolve_filter_all_versions()
         endOnFld = sb.Field(self._pj_table, 'endOn')
         return self._combine_filters(qry, endOnFld == None)
 
@@ -163,7 +169,7 @@ class ImmutableContainer(pjcontainer.AllItemsPJContainer):
 
         # 1. Setup the basic query.
         qry = self._combine_filters(
-            super()._pj_get_resolve_filter(),
+            self._pj_get_resolve_filter_all_versions(),
             sb.Field(self._pj_table, self._pj_mapping_key) == obj.__name__
         )
 
@@ -238,7 +244,7 @@ class ImmutableContainer(pjcontainer.AllItemsPJContainer):
         # need to make sure that all revisions get deleted
         cur = self._pj_jar.getCursor()
         qry = self._combine_filters(
-            super()._pj_get_resolve_filter(),
+            self._pj_get_resolve_filter_all_versions(),
             sb.Field(self._pj_table, self._pj_mapping_key) == key
         )
         # this DELETE works fine just because `execute` checks all SQL commands

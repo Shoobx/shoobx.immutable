@@ -8,6 +8,7 @@
 import datetime
 import mock
 import pjpersist.interfaces as pjinterfaces
+import pjpersist.sqlbuilder as sb
 import transaction
 import unittest
 import zope.component
@@ -27,22 +28,51 @@ class IQuestion(zope.interface.Interface):
     answer = zope.schema.TextLine(
         title='Answer')
 
+    category = zope.schema.TextLine(
+        title='Category')
+
 
 @zope.interface.implementer(IQuestion)
 @serialize.table('questions')
 class Question(pjpersist.Immutable):
-    question = None #FieldProperty(IQuestion['question'])
-    answer = None #FieldProperty(IQuestion['answer'])
+    question = None  # FieldProperty(IQuestion['question'])
+    answer = None  # FieldProperty(IQuestion['answer'])
+    category = None  # FieldProperty(IQuestion['category'])
 
-    def __init__(self, question=None, answer=None):
+    def __init__(self, question=None, answer=None, category=None):
         if question is not None:
             self.question = question
         if answer is not None:
             self.answer = answer
+        if category is not None:
+            self.category = category
 
 
 class Questions(pjpersist.ImmutableContainer):
     _pj_table = 'questions'
+
+
+class TransientCategorizedQuestions(pjpersist.ImmutableContainer):
+    _pj_table = 'questions'
+    category = None
+
+    def __init__(self, category):
+        self.category = category
+
+    def _byCategoryQuery(self):
+        datafld = sb.Field(self._pj_table, 'data')
+        qry = sb.JGET(datafld, 'category') == self.category
+        return qry
+
+    def _pj_get_resolve_filter(self):
+        qry = self._byCategoryQuery()
+        immutable_filter = super()._pj_get_resolve_filter()
+        return self._combine_filters(qry, immutable_filter)
+
+    def _pj_get_resolve_filter_all_versions(self):
+        qry = self._byCategoryQuery()
+        immutable_filter = super()._pj_get_resolve_filter_all_versions()
+        return self._combine_filters(qry, immutable_filter)
 
 
 class NoOpPropertyTest(unittest.TestCase):
@@ -458,3 +488,97 @@ class ImmutableDatabaseTest(testing.PJTestCase):
 
         # that should delete all revisions
         self.assertEqual(len(result), 3)  # 3 revs of anotherq
+
+    def test_delete_categorized(self):
+        # revision delete must take _pj_get_resolve_filter into account
+        # just in case we have the same `name` in more Transient containers
+        qnsMath = TransientCategorizedQuestions('math')
+
+        qMath1 = Question('1+1', '2', 'math')
+        qMath1.name = 'basic'
+        qnsMath.add(qMath1)
+        transaction.commit()
+        with qMath1.__im_update__() as qMath1:
+            qMath1.answer = 2
+        transaction.commit()
+
+        qMath2 = Question('5*4', '20', 'math')
+        qMath2.name = 'second'
+        qnsMath.add(qMath2)
+        transaction.commit()
+        with qMath2.__im_update__() as qMath2:
+            qMath2.answer = 20
+        transaction.commit()
+
+        qnsLang = TransientCategorizedQuestions('language')
+        qLang1 = Question('table', 'der tisch', 'language')
+        qLang1.name = 'basic'
+        qnsLang.add(qLang1)
+        transaction.commit()
+        with qLang1.__im_update__() as qLang1:
+            qLang1.answer = 'der Tisch'
+        transaction.commit()
+
+        qLang2 = Question('window', 'das Fenster', 'language')
+        qLang2.name = 'second'
+        qnsLang.add(qLang2)
+        transaction.commit()
+
+        qLang3 = Question('world', 'die Welt', 'language')
+        qnsLang.add(qLang3)
+        transaction.commit()
+
+        qHist1 = Question('Rome founded', '21 April 753', 'history')
+        with qHist1.__im_update__() as qHist1:
+            qHist1.answer = '21 April 753 BCE'
+        qnsHist = TransientCategorizedQuestions('history')
+        qnsHist.add(qHist1)
+        transaction.commit()
+
+        self.assertEqual(len(qnsMath), 2)
+        self.assertEqual(len(qnsLang), 3)
+        self.assertEqual(len(qnsHist), 1)
+
+        # count all versions
+        cur = self.questions._pj_jar.getCursor()
+        cur.execute("SELECT * FROM questions")
+        result = list(cur.fetchall())
+        self.assertEqual(len(result), 4+4+1)
+
+        # remove just the ONE Question from math
+        del qnsMath['basic']
+        transaction.commit()
+
+        # reload all containers so caches don't spoil the picture
+        qnsMath = TransientCategorizedQuestions('math')
+        qnsLang = TransientCategorizedQuestions('language')
+        qnsHist = TransientCategorizedQuestions('history')
+
+        self.assertEqual(len(qnsMath), 1)
+        self.assertEqual(len(qnsLang), 3)
+        self.assertEqual(len(qnsHist), 1)
+
+        # count all versions
+        cur = self.questions._pj_jar.getCursor()
+        cur.execute("SELECT * FROM questions")
+        result = list(cur.fetchall())
+        self.assertEqual(len(result), 2+4+1)
+
+        # clear just the language Questions
+        qnsLang.clear()
+        transaction.commit()
+
+        # reload all containers so caches don't spoil the picture
+        qnsMath = TransientCategorizedQuestions('math')
+        qnsLang = TransientCategorizedQuestions('language')
+        qnsHist = TransientCategorizedQuestions('history')
+
+        self.assertEqual(len(qnsMath), 1)
+        self.assertEqual(len(qnsLang), 0)
+        self.assertEqual(len(qnsHist), 1)
+
+        # count all versions
+        cur = self.questions._pj_jar.getCursor()
+        cur.execute("SELECT * FROM questions")
+        result = list(cur.fetchall())
+        self.assertEqual(len(result), 2+0+1)
