@@ -140,7 +140,7 @@ class ImmutableContainer(pjcontainer.AllItemsPJContainer):
 
     def getRevision(self, name, version):
         qry = self._combine_filters(
-            super()._pj_get_resolve_filter(),
+            self._pj_get_resolve_filter_all_versions(),
             sb.Field(self._pj_table, self._pj_mapping_key) == name,
             sb.Field(self._pj_table, 'version') == version,
         )
@@ -155,7 +155,7 @@ class ImmutableContainer(pjcontainer.AllItemsPJContainer):
     def getNumberOfRevisions(self, obj):
         # 1. Setup the basic query.
         qry = self._combine_filters(
-            super()._pj_get_resolve_filter(),
+            self._pj_get_resolve_filter_all_versions(),
             sb.Field(self._pj_table, self._pj_mapping_key) == obj.__name__
         )
         with self._pj_jar.getCursor() as cur:
@@ -212,7 +212,7 @@ class ImmutableContainer(pjcontainer.AllItemsPJContainer):
     def rollbackToRevision(self, revision, activate=False):
         cur = self._pj_jar.getCursor()
         qry = self._combine_filters(
-            super()._pj_get_resolve_filter(),
+            self._pj_get_resolve_filter_all_versions(),
             sb.Field(self._pj_table, "version") > revision.__im_version__,
             sb.Field(self._pj_table, self._pj_mapping_key) == revision.__name__
         )
