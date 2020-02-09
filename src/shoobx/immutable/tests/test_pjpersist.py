@@ -188,6 +188,16 @@ class ImmutableContainerTest(unittest.TestCase):
                 interfaces.IRevisionedImmutableManager,
                 pjpersist.ImmutableContainer))
 
+    def test_pj_column_fields(self):
+        self.assertEqual(
+            pjpersist.ImmutableContainer._pj_column_fields,
+            ('id', 'data',
+             'name', 'version', 'startOn', 'endOn', 'creator', 'comment'))
+
+        self.assertEqual(
+            pjpersist.ImmutableContainer._pj_mapping_key,
+            'name')
+
     def test_p_pj_table(self):
         self.assertEqual(self.cont._p_pj_table, 'table')
 

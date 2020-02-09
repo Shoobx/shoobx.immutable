@@ -96,16 +96,15 @@ class Immutable(revisioned.RevisionedImmutable, pjcontainer.PJContained):
         return f'<{self.__class__.__name__} ({self.__name__}) at {self._p_oid}>'
 
 
-
 @zope.interface.implementer(interfaces.IRevisionedImmutableManager)
 class ImmutableContainer(pjcontainer.AllItemsPJContainer):
 
-    _pj_mapping_key = 'name'
+    _pj_mapping_key = Immutable._pj_name
 
     # These fields are used to determine whether to take native SQL columns
     # instead of JSONB fields in raw_find.
     _pj_column_fields = pjcontainer.AllItemsPJContainer._pj_column_fields + (
-        _pj_mapping_key, 'version', 'startOn', 'endOn', 'creator', 'comment')
+        tuple([fld.__name__ for fld in Immutable._pj_column_fields]))
 
     # Testing hook.
     now = datetime.datetime.now
