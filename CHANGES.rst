@@ -3,7 +3,7 @@ CHANGES
 =======
 
 
-1.3.1 (unreleased)
+1.3.1 (2020-02-10)
 ------------------
 
 - Fixing leftover `_pj_get_resolve_filter` occurrences in `ImmutableContainer`
