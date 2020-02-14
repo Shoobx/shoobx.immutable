@@ -12,10 +12,12 @@ Introduction
 Let's start with a simple dictionary:
 
   >>> import shoobx.immutable as im
-  >>> answer = im.ImmutableDict({
-  ...     'question': 'Answer to the ultimate question of life, ...',
-  ...     'answer': 0
-  ... })
+
+  >>> with im.create(im.ImmutableDict) as factory:
+  ...     answer = factory({
+  ...         'question': 'Answer to the ultimate question of life, ...',
+  ...         'answer': 0
+  ...     })
 
   >>> answer['answer']
   0

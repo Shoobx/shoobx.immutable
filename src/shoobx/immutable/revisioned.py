@@ -8,7 +8,6 @@
 import collections.abc
 import datetime
 import zope.interface
-from contextlib import contextmanager
 
 from shoobx.immutable import immutable, interfaces
 
@@ -23,6 +22,10 @@ class RevisionedImmutableBase(immutable.ImmutableBase):
     __im_comment__ = None
     __im_manager__ = None
 
+    def __im_after_create__(self, creator=None, comment=None):
+        self.__im_creator__ = creator
+        self.__im_comment__ = comment
+
     def __im_before_update__(self, clone, creator=None, comment=None):
         # Assign the update information to the clone:
         clone.__im_creator__ = creator
@@ -34,8 +37,7 @@ class RevisionedImmutableBase(immutable.ImmutableBase):
             self.__im_manager__.addRevision(clone, old=self)
 
 
-class RevisionedImmutable(
-        RevisionedImmutableBase, metaclass=immutable.ImmutableMeta):
+class RevisionedImmutable(RevisionedImmutableBase):
     pass
 
 
@@ -77,9 +79,11 @@ class SimpleRevisionedImmutableManager:
                 if (obj.__im_comment__ is not None and
                     comment in obj.__im_comment__)]
         if startBefore is not None:
-            result = [obj for obj in result if obj.__im_start_on__ < startBefore]
+            result = [obj for obj in result
+                      if obj.__im_start_on__ < startBefore]
         if startAfter is not None:
-            result = [obj for obj in result if obj.__im_start_on__ > startAfter]
+            result = [obj for obj in result
+                      if obj.__im_start_on__ > startAfter]
 
         # 3. Setup ordering
         if reversed:
@@ -101,7 +105,7 @@ class SimpleRevisionedImmutableManager:
 
         new.__im_start_on__ = now
         new.__im_manager__ = self
-        assert new.__im_state__ == interfaces.IM_STATE_LOCKED
+        assert new.__im_state__ == interfaces.IM_STATE_LOCKED, new.__im_state__
         self.__data__.append(new)
 
     def rollbackToRevision(self, revision, activate=True):

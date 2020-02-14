@@ -15,8 +15,15 @@ from shoobx.immutable import immutable, interfaces
 
 class ImmutableHelpersTest(unittest.TestCase):
 
+    def test_create(self):
+        with immutable.create(immutable.ImmutableBase) as factory:
+            im = factory()
+        self.assertIsInstance(im, immutable.ImmutableBase)
+        self.assertEqual(im.__im_state__, interfaces.IM_STATE_LOCKED)
+
     def test_update(self):
-        im = immutable.ImmutableBase()
+        with immutable.ImmutableBase.__im_create__() as factory:
+            im = factory()
         with immutable.update(im) as im2:
             im2.answer = 42
         self.assertIsNot(im, im2)
@@ -35,30 +42,6 @@ class ImmutableHelpersTest(unittest.TestCase):
         with self.assertRaises(AttributeError):
             wrapper(im)
 
-    def test_applyStateOnInit(self):
-        func = mock.Mock()
-        wrapper = immutable.applyStateOnInit(func)
-        im = immutable.ImmutableBase.__new__(immutable.ImmutableBase)
-        wrapper(im)
-        self.assertTrue(func.called)
-        self.assertEqual(im.__im_state__, interfaces.IM_STATE_LOCKED)
-
-    def test_applyStateOnInit_withoutFinalization(self):
-        func = mock.Mock()
-        wrapper = immutable.applyStateOnInit(func)
-        im = immutable.ImmutableBase.__new__(immutable.ImmutableBase)
-        wrapper(im, im_finalize=False)
-        self.assertTrue(func.called)
-        self.assertEqual(im.__im_state__, interfaces.IM_STATE_TRANSIENT)
-
-    def test_applyStateOnInit_asSlave(self):
-        func = mock.Mock()
-        wrapper = immutable.applyStateOnInit(func)
-        im = immutable.ImmutableBase.__new__(immutable.ImmutableBase)
-        wrapper(im, im_mode=interfaces.IM_MODE_SLAVE)
-        self.assertEqual(im.__im_mode__, interfaces.IM_MODE_SLAVE)
-        self.assertEqual(im.__im_state__, interfaces.IM_STATE_LOCKED)
-
 
 class ImmutableBaseTest(unittest.TestCase):
 
@@ -69,36 +52,32 @@ class ImmutableBaseTest(unittest.TestCase):
     def test_init(self):
         im = immutable.ImmutableBase()
         self.assertEqual(im.__im_mode__, interfaces.IM_MODE_MASTER)
-        self.assertEqual(im.__im_state__, interfaces.IM_STATE_LOCKED)
-
-    def test_init_withoutFinalization(self):
-        im = immutable.ImmutableBase(im_finalize=False)
-        self.assertEqual(im.__im_mode__, interfaces.IM_MODE_MASTER)
         self.assertEqual(im.__im_state__, interfaces.IM_STATE_TRANSIENT)
 
-    def test_init_asSlave(self):
-        im = immutable.ImmutableBase(im_mode=interfaces.IM_MODE_SLAVE)
-        self.assertEqual(im.__im_mode__, interfaces.IM_MODE_SLAVE)
-        self.assertEqual(im.__im_state__, interfaces.IM_STATE_LOCKED)
-
     def test_im_conform(self):
-        im = immutable.ImmutableBase()
-        other = immutable.ImmutableBase(im_finalize=False)
+        with immutable.create(immutable.ImmutableBase) as factory:
+            im = factory()
+        with immutable.create(
+                immutable.ImmutableBase, finalize=False) as factory:
+            other = factory()
         conform = im.__im_conform__(other)
         self.assertIs(conform, other)
         self.assertEqual(conform.__im_state__, interfaces.IM_STATE_TRANSIENT)
         self.assertEqual(conform.__im_mode__, interfaces.IM_MODE_SLAVE)
 
     def test_im_conform_withLockedImmutable(self):
-        im = immutable.ImmutableBase()
-        other = immutable.ImmutableBase()
+        with immutable.create(immutable.ImmutableBase) as factory:
+            im = factory()
+        with immutable.create(immutable.ImmutableBase) as factory:
+            other = factory()
         comform = im.__im_conform__(other)
         self.assertIsNot(comform, other)
         self.assertEqual(comform.__im_state__, interfaces.IM_STATE_TRANSIENT)
         self.assertEqual(comform.__im_mode__, interfaces.IM_MODE_SLAVE)
 
     def test_im_conform_withCoreImmutable(self):
-        im = immutable.ImmutableBase()
+        with immutable.create(immutable.ImmutableBase) as factory:
+            im = factory()
         other = 42
         self.assertIs(im.__im_conform__(other), other)
 
@@ -118,19 +97,22 @@ class ImmutableBaseTest(unittest.TestCase):
         self.assertIs(im.__im_conform__(other), other)
 
     def test_im_conform_withDict(self):
-        im = immutable.ImmutableBase()
+        with immutable.create(immutable.ImmutableBase) as factory:
+            im = factory()
         im_dict = im.__im_conform__({'one': 1})
         self.assertDictEqual(dict(im_dict), {'one': 1})
         self.assertEqual(im_dict.__im_state__, interfaces.IM_STATE_TRANSIENT)
 
     def test_im_conform_withList(self):
-        im = immutable.ImmutableBase()
+        with immutable.create(immutable.ImmutableBase) as factory:
+            im = factory()
         im_list = im.__im_conform__(['one'])
         self.assertListEqual(list(im_list), ['one'])
         self.assertEqual(im_list.__im_state__, interfaces.IM_STATE_TRANSIENT)
 
     def test_im_conform_withSet(self):
-        im = immutable.ImmutableBase()
+        with immutable.create(immutable.ImmutableBase) as factory:
+            im = factory()
         im_set = im.__im_conform__({'one'})
         self.assertSetEqual(set(im_set), {'one'})
         self.assertEqual(im_set.__im_state__, interfaces.IM_STATE_TRANSIENT)
@@ -142,83 +124,157 @@ class ImmutableBaseTest(unittest.TestCase):
 
         class Mutable:
             def __im_get__(self, mode=None):
-                return ConformedImmutable(im_mode=mode, im_finalize=False)
+                with immutable.create(
+                        ConformedImmutable, finalize=False, mode=mode) as fac:
+                    return fac()
 
-        im = immutable.ImmutableBase()
+        with immutable.create(immutable.ImmutableBase) as factory:
+            im = factory()
         im_mutable = im.__im_conform__(Mutable())
         self.assertEqual(im_mutable.__im_state__, interfaces.IM_STATE_TRANSIENT)
         self.assertEqual(im_mutable.__im_mode__, interfaces.IM_MODE_SLAVE)
 
     def test_im_conform_withNonConformableMutable(self):
-        im = immutable.ImmutableBase()
+        with immutable.create(immutable.ImmutableBase) as factory:
+            im = factory()
         with self.assertRaises(ValueError):
             im.__im_conform__(object())
 
     def test_im_clone(self):
-        im = immutable.ImmutableBase(im_finalize=False)
+        with immutable.create(
+                immutable.ImmutableBase, finalize=False) as factory:
+            im = factory()
         im2 = im.__im_clone__()
         self.assertIsNot(im, im2)
         self.assertEqual(im2.__im_state__, interfaces.IM_STATE_TRANSIENT)
 
     def test_im_clone_withLocked(self):
-        im = immutable.ImmutableBase(im_finalize=False)
+        with immutable.create(
+                immutable.ImmutableBase, finalize=False) as factory:
+            im = factory()
         im.__im_state__ = interfaces.IM_STATE_LOCKED
         # Clones are always transient.
         im2 = im.__im_clone__()
         self.assertEqual(im2.__im_state__, interfaces.IM_STATE_TRANSIENT)
 
     def test_im_clone_withCoreSub(self):
-        im = immutable.ImmutableBase(im_finalize=False)
+        with immutable.create(
+                immutable.ImmutableBase, finalize=False) as factory:
+            im = factory()
         im.answer = 42
         # Clones are always transient.
         im2 = im.__im_clone__()
         self.assertEqual(im2.answer, 42)
 
     def test_im_clone_withImmutableSub(self):
-        im = immutable.ImmutableBase(im_finalize=False)
-        im.answer = immutable.ImmutableBase(im_finalize=False)
-        im.__im_finalize__()
+        with immutable.create(immutable.ImmutableBase) as factory:
+            im = factory()
+            with immutable.ImmutableBase.__im_create__(
+                    finalize=False) as factory:
+                im.answer = factory()
         # All sub-objects of the clone are transient.
         im2 = im.__im_clone__()
         self.assertIsNot(im.answer, im2.answer)
         self.assertEqual(im2.answer.__im_state__, interfaces.IM_STATE_TRANSIENT)
 
     def test_im_finalize(self):
-        im = immutable.ImmutableBase(im_finalize=False)
+        with immutable.ImmutableBase.__im_create__(finalize=False) as factory:
+            im = factory()
         im.__im_finalize__()
         self.assertEqual(im.__im_state__, interfaces.IM_STATE_LOCKED)
 
     def test_im_finalize_withLockedObject(self):
-        im = immutable.ImmutableBase()
+        with immutable.ImmutableBase.__im_create__() as factory:
+            im = factory()
         with self.assertRaises(RuntimeError):
             im.__im_finalize__()
 
     def test_im_finalize_withCoreSub(self):
-        im = immutable.ImmutableBase(im_finalize=False)
+        with immutable.ImmutableBase.__im_create__(finalize=False) as factory:
+            im = factory()
         im.answer = 42
         im.__im_finalize__()
         self.assertEqual(im.answer, 42)
 
     def test_im_finalize_withImmutableSub(self):
-        im = immutable.ImmutableBase(im_finalize=False)
-        im.answer = immutable.ImmutableBase(im_finalize=False)
+        with immutable.ImmutableBase.__im_create__(finalize=False) as factory:
+            im = factory()
+        with immutable.ImmutableBase.__im_create__(finalize=False) as factory:
+            im.answer = factory()
         # finalization will finalize all sub-immutables as well.
         im.__im_finalize__()
         self.assertEqual(im.__im_state__, interfaces.IM_STATE_LOCKED)
         self.assertEqual(im.answer.__im_state__, interfaces.IM_STATE_LOCKED)
 
     def test_im_before_update(self):
-        im = immutable.ImmutableBase(im_finalize=False)
+        with immutable.ImmutableBase.__im_create__(finalize=False) as factory:
+            im = factory()
         # No-op.
         im.__im_before_update__(None)
 
+    def test_im_create(self):
+        with immutable.ImmutableBase.__im_create__() as factory:
+            im = factory()
+            im.answer = 42
+
+        self.assertEqual(im.answer, 42)
+        self.assertEqual(im.__im_state__, interfaces.IM_STATE_LOCKED)
+        self.assertEqual(im.__im_mode__, interfaces.IM_MODE_MASTER)
+
+        with immutable.ImmutableBase.__im_create__(finalize=False) as factory:
+            im2 = factory()
+            im2.answer = 42
+
+        self.assertEqual(im2.answer, 42)
+        self.assertEqual(im2.__im_state__, interfaces.IM_STATE_TRANSIENT)
+        self.assertEqual(im.__im_mode__, interfaces.IM_MODE_MASTER)
+
+        with immutable.ImmutableBase.__im_create__(
+                mode=interfaces.IM_MODE_SLAVE) as factory:
+            im3 = factory()
+            im3.answer = 42
+
+        self.assertEqual(im3.answer, 42)
+        self.assertEqual(im3.__im_state__, interfaces.IM_STATE_LOCKED)
+        self.assertEqual(im3.__im_mode__, interfaces.IM_MODE_SLAVE)
+
+    def test_im_create_factory_fails(self):
+        class ImmutableFailure(immutable.ImmutableBase):
+            def __im_after_create__(self, *args, **kw):
+                raise ValueError('booooom')
+
+        with ImmutableFailure.__im_create__() as factory:
+            with self.assertRaises(ValueError):
+                factory()
+
+    def test_im_after_create(self):
+        with immutable.ImmutableBase.__im_create__(finalize=False) as factory:
+            im = factory()
+        # No-op.
+        im.__im_after_create__(None, foobar=42)
+
     def test_im_after_update(self):
-        im = immutable.ImmutableBase(im_finalize=False)
+        with immutable.ImmutableBase.__im_create__(finalize=False) as factory:
+            im = factory()
         # No-op.
         im.__im_after_update__(None)
 
+    def test_im_create_withoutFinalization(self):
+        with immutable.ImmutableBase.__im_create__(finalize=False) as factory:
+            im = factory()
+        self.assertEqual(im.__im_mode__, interfaces.IM_MODE_MASTER)
+        self.assertEqual(im.__im_state__, interfaces.IM_STATE_TRANSIENT)
+
+    def test_im_create_asSlave(self):
+        with immutable.ImmutableBase.__im_create__(
+                 mode=interfaces.IM_MODE_SLAVE) as factory:
+            im = factory()
+        self.assertEqual(im.__im_mode__, interfaces.IM_MODE_SLAVE)
+        self.assertEqual(im.__im_state__, interfaces.IM_STATE_LOCKED)
+
     def test_im_update(self):
-        im = immutable.ImmutableBase()
+        with immutable.ImmutableBase.__im_create__() as factory:
+            im = factory()
         with im.__im_update__() as im2:
             im2.answer = 42
         self.assertIsNot(im, im2)
@@ -226,13 +282,15 @@ class ImmutableBaseTest(unittest.TestCase):
         self.assertEqual(im2.__im_state__, interfaces.IM_STATE_LOCKED)
 
     def test_im_update_withTransientImmutable(self):
-        im = immutable.ImmutableBase(im_finalize=False)
+        with immutable.ImmutableBase.__im_create__(finalize=False) as factory:
+            im = factory()
         with im.__im_update__() as im2:
             pass
         self.assertIs(im, im2)
 
     def test_im_update_withNestedUpdates(self):
-        im = immutable.ImmutableBase()
+        with immutable.ImmutableBase.__im_create__() as factory:
+            im = factory()
         with im.__im_update__() as im2:
             with im2.__im_update__() as im3:
                 pass
@@ -241,21 +299,27 @@ class ImmutableBaseTest(unittest.TestCase):
         self.assertIs(im2, im3)
 
     def test_im_update_withSlave(self):
-        im = immutable.ImmutableBase(im_mode=interfaces.IM_MODE_SLAVE)
+        with immutable.ImmutableBase.__im_create__(
+                mode=interfaces.IM_MODE_SLAVE) as factory:
+            im = factory()
         with self.assertRaises(AttributeError):
-            with im.__im_update__() as im2:
+            with im.__im_update__():
                 pass
 
     def test_im_update_withException(self):
-        im = immutable.ImmutableBase()
+        with immutable.ImmutableBase.__im_create__(finalize=False) as factory:
+            im = factory()
         with self.assertRaises(RuntimeError):
-            with im.__im_update__() as im2:
+            with im.__im_update__():
                 raise RuntimeError(None)
 
     def test_im_update_prohibitCrossRef(self):
-        im = immutable.ImmutableBase()
+        with immutable.ImmutableBase.__im_create__(finalize=False) as factory:
+            im = factory()
         with im.__im_update__() as im2:
-            im2.answer = immutable.ImmutableBase()
+            with immutable.ImmutableBase.__im_create__(
+                    finalize=False) as factory:
+                im2.answer = factory()
             # Do not allow cross referenced objects
             with self.assertRaises(AssertionError):
                 im2.other = {'answer': im2.answer}  # dict
@@ -267,32 +331,41 @@ class ImmutableBaseTest(unittest.TestCase):
                 im2.other = im2.answer  # as attribute
 
     def test_im_update_ensureImmutabilityOfOriginal(self):
-        im = immutable.ImmutableBase()
-        with im.__im_update__() as im2:
+        with immutable.ImmutableBase.__im_create__() as factory:
+            im = factory()
+        with im.__im_update__():
             with self.assertRaises(AttributeError):
                 im.answer = 42
 
     def test_im_update_withImmutableSubojects(self):
-        im = immutable.ImmutableBase()
+        with immutable.ImmutableBase.__im_create__() as factory:
+            im = factory()
         with im.__im_update__() as im2:
-            im2.question = immutable.ImmutableBase()
-            im2.question.answer = 42
+            with immutable.ImmutableBase.__im_create__(
+                    finalize=False) as factory:
+                im2.question = factory()
+                im2.question.answer = 42
         self.assertEqual(im2.question.answer, 42)
         # Make sure that all sub-objects get locked as well.
         self.assertEqual(im2.question.__im_state__, interfaces.IM_STATE_LOCKED)
         # Ensure that the question sub-object was cloned during the update.
 
     def test_im_update_ensureDeepClone(self):
-        im = immutable.ImmutableBase()
+        with immutable.ImmutableBase.__im_create__() as factory:
+            im = factory()
         with im.__im_update__() as im2:
-            im2.question = immutable.ImmutableBase()
+            with immutable.ImmutableBase.__im_create__(
+                    finalize=False) as factory:
+                im2.question = factory()
         with im2.__im_update__() as im3:
             im3.question.answer = 42
         self.assertIsNot(im3.question, im2.question)
 
     def test_im_update_withImmutableFromAnotherUpdate(self):
-        im = immutable.ImmutableBase()
-        question = immutable.ImmutableBase()
+        with immutable.ImmutableBase.__im_create__() as factory:
+            im = factory()
+        with immutable.ImmutableBase.__im_create__() as factory:
+            question = factory()
         with im.__im_update__() as im2:
             # One could argue that this assignment should not be allowed,
             # since we created the question immutable outside the
@@ -304,15 +377,19 @@ class ImmutableBaseTest(unittest.TestCase):
         self.assertEqual(im2.question.answer, 42)
 
     def test_im_update_disallowSubObjectUpdates(self):
-        im = immutable.ImmutableBase()
+        with immutable.ImmutableBase.__im_create__() as factory:
+            im = factory()
         with im.__im_update__() as im2:
-            im2.question = immutable.ImmutableBase()
+            with immutable.ImmutableBase.__im_create__(
+                    finalize=False) as factory:
+                im2.question = factory()
         with self.assertRaises(AttributeError):
-            with im2.question.__im_update__() as q3:
+            with im2.question.__im_update__():
                 pass
 
     def test_im_is_internal_attr(self):
-        im = immutable.ImmutableBase()
+        with immutable.ImmutableBase.__im_create__() as factory:
+            im = factory()
         self.assertTrue(
             im.__im_is_internal_attr__('__answer__'))
         self.assertFalse(
@@ -320,17 +397,19 @@ class ImmutableBaseTest(unittest.TestCase):
 
     def test_setattr(self):
         # By default, the immutable is transient.
-        im = immutable.ImmutableBase(im_finalize=False)
+        im = immutable.ImmutableBase()
         im.answer = 42
         self.assertEqual(im.answer, 42)
 
     def test_setattr_withLockedImmutable(self):
-        im = immutable.ImmutableBase()
+        with immutable.ImmutableBase.__im_create__() as factory:
+            im = factory()
         with self.assertRaises(AttributeError):
             im.answer = 42
 
     def test_setattr_withInternalAttribute(self):
-        im = immutable.ImmutableBase()
+        with immutable.ImmutableBase.__im_create__() as factory:
+            im = factory()
         im.__answer__ = 42
         self.assertEqual(im.__answer__, 42)
 
@@ -351,12 +430,14 @@ class ImmutableTest(unittest.TestCase):
         class Answer(immutable.Immutable):
             pass
 
-        answer = Answer()
+        with Answer.__im_create__() as factory:
+            answer = factory()
         self.assertEqual(answer.__im_mode__, interfaces.IM_MODE_MASTER)
         self.assertEqual(answer.__im_state__, interfaces.IM_STATE_LOCKED)
 
-        answer = Answer(
-            im_finalize=False, im_mode=interfaces.IM_MODE_SLAVE)
+        with Answer.__im_create__(
+                finalize=False, mode=interfaces.IM_MODE_SLAVE) as factory:
+            answer = factory()
         self.assertEqual(answer.__im_mode__, interfaces.IM_MODE_SLAVE)
         self.assertEqual(answer.__im_state__, interfaces.IM_STATE_TRANSIENT)
 
@@ -367,13 +448,15 @@ class ImmutableTest(unittest.TestCase):
             def __init__(self, answer):
                 self.answer = answer
 
-        question = Question(42)
+        with Question.__im_create__() as factory:
+            question = factory(42)
         self.assertEqual(question.answer, 42)
         self.assertEqual(question.__im_mode__, interfaces.IM_MODE_MASTER)
         self.assertEqual(question.__im_state__, interfaces.IM_STATE_LOCKED)
 
-        question = Question(
-            42, im_finalize=False, im_mode=interfaces.IM_MODE_SLAVE)
+        with Question.__im_create__(
+                finalize=False, mode=interfaces.IM_MODE_SLAVE) as factory:
+            question = factory(42)
         self.assertEqual(question.answer, 42)
         self.assertEqual(question.__im_mode__, interfaces.IM_MODE_SLAVE)
         self.assertEqual(question.__im_state__, interfaces.IM_STATE_TRANSIENT)
@@ -385,7 +468,8 @@ class ImmutableTest(unittest.TestCase):
             def __init__(self, answers):
                 self.answers = answers
 
-        question = Question([42])
+        with Question.__im_create__() as factory:
+            question = factory([42])
         self.assertIsInstance(question.answers, immutable.ImmutableList)
         self.assertEqual(question.__im_state__, interfaces.IM_STATE_LOCKED)
         self.assertEqual(
@@ -399,31 +483,38 @@ class ImmutableDictTest(unittest.TestCase):
             verify.verifyClass(interfaces.IImmutable, immutable.ImmutableDict))
 
     def test_init(self):
-        dct = immutable.ImmutableDict()
+        with immutable.ImmutableDict.__im_create__() as factory:
+            dct = factory()
         self.assertEqual(dct.__im_mode__, interfaces.IM_MODE_MASTER)
         self.assertEqual(dct.__im_state__, interfaces.IM_STATE_LOCKED)
 
     def test_init_withInitialDict(self):
-        dct = immutable.ImmutableDict({'one': 1})
+        with immutable.ImmutableDict.__im_create__() as factory:
+            dct = factory({'one': 1})
         self.assertDictEqual(dct.data, {'one': 1})
         self.assertEqual(dct.__im_mode__, interfaces.IM_MODE_MASTER)
         self.assertEqual(dct.__im_state__, interfaces.IM_STATE_LOCKED)
 
     def test_init_withKeywordArgs(self):
-        dct = immutable.ImmutableDict(one=1)
+        with immutable.ImmutableDict.__im_create__() as factory:
+            dct = factory(one=1)
         self.assertDictEqual(dct.data, {'one': 1})
         self.assertEqual(dct.__im_mode__, interfaces.IM_MODE_MASTER)
         self.assertEqual(dct.__im_state__, interfaces.IM_STATE_LOCKED)
 
     def test_clone(self):
-        dct = immutable.ImmutableDict({'one': 1}).__im_clone__()
+        with immutable.ImmutableDict.__im_create__() as factory:
+            dct = factory({'one': 1})
+        dct = dct.__im_clone__()
         self.assertDictEqual(dct.data, {'one': 1})
         self.assertEqual(dct.__im_mode__, interfaces.IM_MODE_MASTER)
         self.assertEqual(dct.__im_state__, interfaces.IM_STATE_TRANSIENT)
 
     def test_clone_withImmutableValue(self):
         dct = {'question': {'answer': 42}}
-        im_dct = immutable.ImmutableDict(dct).__im_clone__()
+        with immutable.ImmutableDict.__im_create__() as factory:
+            im_dct = factory(dct)
+        im_dct = im_dct.__im_clone__()
         self.assertIsInstance(
             im_dct['question'], immutable.ImmutableDict)
         self.assertEqual(
@@ -432,7 +523,8 @@ class ImmutableDictTest(unittest.TestCase):
             im_dct.__im_state__, interfaces.IM_STATE_TRANSIENT)
 
     def test_im_set_state(self):
-        im_dct = immutable.ImmutableDict({'one': 1}, im_finalize=False)
+        with immutable.ImmutableDict.__im_create__(finalize=False) as factory:
+            im_dct = factory({'one': 1})
         self.assertEqual(im_dct.__im_mode__, interfaces.IM_MODE_MASTER)
         self.assertEqual(im_dct.__im_state__, interfaces.IM_STATE_TRANSIENT)
         im_dct.__im_set_state__(interfaces.IM_STATE_LOCKED)
@@ -440,7 +532,8 @@ class ImmutableDictTest(unittest.TestCase):
 
     def test_im_set_state_withImmutableValue(self):
         dct = {'question': {'answer': 42}}
-        im_dct = immutable.ImmutableDict(dct, im_finalize=False)
+        with immutable.ImmutableDict.__im_create__(finalize=False) as factory:
+            im_dct = factory(dct)
         self.assertEqual(
             im_dct.__im_mode__, interfaces.IM_MODE_MASTER)
         self.assertEqual(
@@ -456,16 +549,18 @@ class ImmutableDictTest(unittest.TestCase):
             im_dct['question'].__im_state__, interfaces.IM_STATE_LOCKED)
 
     def test_im_is_internal_attr(self):
-        im = immutable.ImmutableDict()
+        with immutable.ImmutableDict.__im_create__() as factory:
+            dct = factory()
         self.assertTrue(
-            im.__im_is_internal_attr__('__answer__'))
+            dct.__im_is_internal_attr__('__answer__'))
         self.assertTrue(
-            im.__im_is_internal_attr__('data'))
+            dct.__im_is_internal_attr__('data'))
         self.assertFalse(
-            im.__im_is_internal_attr__('answer'))
+            dct.__im_is_internal_attr__('answer'))
 
     def test_attribute_setting(self):
-        dct = immutable.ImmutableDict()
+        with immutable.ImmutableDict.__im_create__() as factory:
+            dct = factory()
         with self.assertRaises(AttributeError):
             dct.somethingNew = 42
 
@@ -482,7 +577,8 @@ class ImmutableDictTest(unittest.TestCase):
             dct2.somethingNew = 41
 
     def test_setitem(self):
-        dct = immutable.ImmutableDict()
+        with immutable.ImmutableDict.__im_create__() as factory:
+            dct = factory()
         with dct.__im_update__() as dct2:
             dct2['answer'] = 42
         self.assertEqual(dct2['answer'], 42)
@@ -493,21 +589,26 @@ class ImmutableDictTest(unittest.TestCase):
             dct['answer'] = 42
 
     def test_setitem_withImmutable(self):
-        dct = immutable.ImmutableDict()
+        with immutable.ImmutableDict.__im_create__() as factory:
+            dct = factory()
         with dct.__im_update__() as dct2:
-            dct2['answer'] = item = immutable.ImmutableBase(im_finalize=False)
+            dct2['answer'] = item = immutable.ImmutableBase()
         self.assertIs(dct2['answer'], item)
         self.assertEqual(item.__im_state__, interfaces.IM_STATE_LOCKED)
 
     def test_setitem_withImmutableSlave(self):
-        dct = immutable.ImmutableDict()
+        with immutable.ImmutableDict.__im_create__() as factory:
+            dct = factory()
         with dct.__im_update__() as dct2:
+            with immutable.ImmutableBase.__im_create__(
+                    mode=interfaces.IM_MODE_SLAVE) as factory:
+                item = factory()
             with self.assertRaises(AssertionError):
-                dct2['answer'] = immutable.ImmutableBase(
-                    im_mode=interfaces.IM_MODE_SLAVE)
+                dct2['answer'] = item
 
     def test_delitem(self):
-        dct = immutable.ImmutableDict(answer=42)
+        with immutable.ImmutableDict.__im_create__() as factory:
+            dct = factory(answer=42)
         with dct.__im_update__() as dct2:
             del dct2['answer']
         with self.assertRaises(KeyError):
@@ -519,7 +620,8 @@ class ImmutableDictTest(unittest.TestCase):
 
     def test_copy(self):
         # Copy works only on locked objects.
-        dct = immutable.ImmutableDict(answer=42)
+        with immutable.ImmutableDict.__im_create__() as factory:
+            dct = factory(answer=42)
         im_dct_copy = dct.copy()
         self.assertDictEqual(dict(im_dct_copy), {'answer': 42})
 
@@ -530,26 +632,28 @@ class ImmutableDictTest(unittest.TestCase):
             # We do not allow copy on a transient object, it just causes
             # headaches.
             with self.assertRaises(AssertionError):
-                dct3 = dct2.copy()
+                dct2.copy()
 
     def test_copy_withIImmutableObject(self):
         class AnImmutable(immutable.ImmutableBase):
             pass
 
-        im = AnImmutable()
-        with im.__im_update__() as im2:
+        with AnImmutable.__im_create__() as factory:
+            im2 = factory()
             im2.name = 'foobar'
-        dct = immutable.ImmutableDict(answer=42, mutable=im2)
-        dct_copy = dct.copy()
+        with immutable.ImmutableDict.__im_create__() as factory:
+            dct = factory(answer=42, mutable=im2)
+        dct.copy()  # this just does not fail
 
         with dct.__im_update__() as dct2:
             # we do not allow copy on a transient object, it just causes
             # headaches
             with self.assertRaises(AssertionError):
-                dct3 = dct2.copy()
+                dct2.copy()
 
     def test_clear(self):
-        dct = immutable.ImmutableDict(answer=42)
+        with immutable.ImmutableDict.__im_create__() as factory:
+            dct = factory(answer=42)
         with dct.__im_update__() as dct2:
             dct2.clear()
         self.assertDictEqual(dct.data, {'answer': 42})
@@ -559,7 +663,8 @@ class ImmutableDictTest(unittest.TestCase):
             dct.clear()
 
     def test_update(self):
-        dct = immutable.ImmutableDict()
+        with immutable.ImmutableDict.__im_create__() as factory:
+            dct = factory()
         with dct.__im_update__() as dct2:
             dct2.update({'answer': 42})
         self.assertDictEqual(dct.data, {})
@@ -569,7 +674,8 @@ class ImmutableDictTest(unittest.TestCase):
             dct.update({})
 
     def test_setdefault(self):
-        dct = immutable.ImmutableDict()
+        with immutable.ImmutableDict.__im_create__() as factory:
+            dct = factory()
         with dct.__im_update__() as dct2:
             res = dct2.setdefault('answer', 42)
             self.assertEqual(res, 42)
@@ -581,7 +687,8 @@ class ImmutableDictTest(unittest.TestCase):
             dct.setdefault('answer', 42)
 
     def test_pop(self):
-        dct = immutable.ImmutableDict(answer=42)
+        with immutable.ImmutableDict.__im_create__() as factory:
+            dct = factory(answer=42)
         with dct.__im_update__() as dct2:
             dct2.pop('answer')
         with self.assertRaises(KeyError):
@@ -592,7 +699,8 @@ class ImmutableDictTest(unittest.TestCase):
             dct.pop('answer')
 
     def test_popitem(self):
-        dct = immutable.ImmutableDict(answer=42)
+        with immutable.ImmutableDict.__im_create__() as factory:
+            dct = factory(answer=42)
         with dct.__im_update__() as dct2:
             dct2.popitem()
         with self.assertRaises(KeyError):
@@ -607,14 +715,16 @@ class ImmutableDictTest(unittest.TestCase):
         self.assertEqual(dict(dct), {41: 'answer', 42: 'answer'})
 
     def test_fromkeys_withImmutables(self):
-        im = immutable.Immutable()
+        with immutable.Immutable.__im_create__() as factory:
+            im = factory()
         dct = immutable.ImmutableDict.fromkeys([41, 42], im)
         self.assertIsNot(dct[41], im)
         self.assertIsNot(dct[42], im)
         self.assertIsNot(dct[41], dct[42])
 
     def test_getstate(self):
-        dct = immutable.ImmutableDict(answer=42)
+        with immutable.ImmutableDict.__im_create__() as factory:
+            dct = factory(answer=42)
         self.assertDictEqual(dct.__getstate__(), {'answer': 42})
 
     def test_setstate(self):
@@ -630,24 +740,30 @@ class ImmutableSetTest(unittest.TestCase):
             verify.verifyClass(interfaces.IImmutable, immutable.ImmutableSet))
 
     def test_init(self):
-        set = immutable.ImmutableSet()
-        self.assertEqual(set.__im_mode__, interfaces.IM_MODE_MASTER)
-        self.assertEqual(set.__im_state__, interfaces.IM_STATE_LOCKED)
+        with immutable.ImmutableSet.__im_create__() as factory:
+            im_set = factory()
+        self.assertEqual(im_set.__im_mode__, interfaces.IM_MODE_MASTER)
+        self.assertEqual(im_set.__im_state__, interfaces.IM_STATE_LOCKED)
 
     def test_init_withInitialSet(self):
-        set = immutable.ImmutableSet({1})
-        self.assertSetEqual(set.__data__, {1})
-        self.assertEqual(set.__im_mode__, interfaces.IM_MODE_MASTER)
-        self.assertEqual(set.__im_state__, interfaces.IM_STATE_LOCKED)
+        with immutable.ImmutableSet.__im_create__() as factory:
+            im_set = factory({1})
+        self.assertSetEqual(im_set.__data__, {1})
+        self.assertEqual(im_set.__im_mode__, interfaces.IM_MODE_MASTER)
+        self.assertEqual(im_set.__im_state__, interfaces.IM_STATE_LOCKED)
 
     def test_clone(self):
-        im_set = immutable.ImmutableSet([1]).__im_clone__()
+        with immutable.ImmutableSet.__im_create__() as factory:
+            im_set = factory([1])
+        im_set = im_set.__im_clone__()
         self.assertSetEqual(im_set.__data__, {1})
         self.assertEqual(im_set.__im_mode__, interfaces.IM_MODE_MASTER)
         self.assertEqual(im_set.__im_state__, interfaces.IM_STATE_TRANSIENT)
 
     def test_clone_withImmutableValue(self):
-        im_set = immutable.ImmutableSet([{42}]).__im_clone__()
+        with immutable.ImmutableSet.__im_create__() as factory:
+            im_set = factory([{42}])
+        im_set = im_set.__im_clone__()
         self.assertIsInstance(
             list(im_set)[0], immutable.ImmutableSet)
         self.assertEqual(
@@ -656,14 +772,16 @@ class ImmutableSetTest(unittest.TestCase):
             im_set.__im_state__, interfaces.IM_STATE_TRANSIENT)
 
     def test_im_set_state(self):
-        im_set = immutable.ImmutableSet({1}, im_finalize=False)
+        with immutable.ImmutableSet.__im_create__(finalize=False) as factory:
+            im_set = factory({1})
         self.assertEqual(im_set.__im_mode__, interfaces.IM_MODE_MASTER)
         self.assertEqual(im_set.__im_state__, interfaces.IM_STATE_TRANSIENT)
         im_set.__im_set_state__(interfaces.IM_STATE_LOCKED)
         self.assertEqual(im_set.__im_state__, interfaces.IM_STATE_LOCKED)
 
     def test_im_set_state_withImmutableValue(self):
-        im_set = immutable.ImmutableSet([{42}], im_finalize=False)
+        with immutable.ImmutableSet.__im_create__(finalize=False) as factory:
+            im_set = factory([{42}])
         self.assertEqual(
             im_set.__im_mode__, interfaces.IM_MODE_MASTER)
         self.assertEqual(
@@ -679,7 +797,8 @@ class ImmutableSetTest(unittest.TestCase):
             list(im_set)[0].__im_state__, interfaces.IM_STATE_LOCKED)
 
     def test_add(self):
-        im_set = immutable.ImmutableSet()
+        with immutable.ImmutableSet.__im_create__() as factory:
+            im_set = factory()
         with im_set.__im_update__() as im_set2:
             im_set2.add(42)
         self.assertSetEqual(im_set.__data__, set())
@@ -689,22 +808,30 @@ class ImmutableSetTest(unittest.TestCase):
             im_set2.add(41)
 
     def test_add_withImmutable(self):
-        im_set = immutable.ImmutableSet()
+        with immutable.ImmutableSet.__im_create__() as factory:
+            im_set = factory()
         with im_set.__im_update__() as im_set2:
-            item = immutable.ImmutableBase(im_finalize=False)
+            with immutable.ImmutableBase.__im_create__(
+                    finalize=False) as factory:
+                item = factory()
             im_set2.add(item)
         self.assertIs(list(im_set2)[0], item)
         self.assertEqual(item.__im_state__, interfaces.IM_STATE_LOCKED)
 
     def test_add_withImmutableSlave(self):
-        im_set = immutable.ImmutableSet()
+        with immutable.ImmutableSet.__im_create__() as factory:
+            im_set = factory()
         with im_set.__im_update__() as im_set2:
             with self.assertRaises(AssertionError):
-                im_set2.add(immutable.ImmutableBase(
-                    im_mode=interfaces.IM_MODE_SLAVE))
+                with immutable.ImmutableBase.__im_create__(
+                        mode=interfaces.IM_MODE_SLAVE) as factory:
+                    item = factory()
+
+                im_set2.add(item)
 
     def test_discard(self):
-        im_set = immutable.ImmutableSet({42})
+        with immutable.ImmutableSet.__im_create__() as factory:
+            im_set = factory({42})
         with im_set.__im_update__() as im_set2:
             im_set2.discard(42)
         self.assertSetEqual(im_set.__data__, {42})
@@ -717,7 +844,8 @@ class ImmutableSetTest(unittest.TestCase):
     # `discard` but let's make sure that calling those higher level methods
     # work as expected, especially that they fail on non transient objects
     def test_remove(self):
-        im_set = immutable.ImmutableSet({42})
+        with immutable.ImmutableSet.__im_create__() as factory:
+            im_set = factory({42})
         with im_set.__im_update__() as im_set2:
             im_set2.remove(42)
         self.assertSetEqual(im_set.__data__, {42})
@@ -727,7 +855,8 @@ class ImmutableSetTest(unittest.TestCase):
             im_set.remove(42)
 
     def test_pop(self):
-        im_set = immutable.ImmutableSet({42})
+        with immutable.ImmutableSet.__im_create__() as factory:
+            im_set = factory({42})
         with im_set.__im_update__() as im_set2:
             self.assertEqual(im_set2.pop(), 42)
         self.assertSetEqual(im_set.__data__, {42})
@@ -737,7 +866,8 @@ class ImmutableSetTest(unittest.TestCase):
             im_set.pop()
 
     def test_clear(self):
-        im_set = immutable.ImmutableSet({42})
+        with immutable.ImmutableSet.__im_create__() as factory:
+            im_set = factory({42})
         with im_set.__im_update__() as im_set2:
             im_set2.clear()
         self.assertSetEqual(im_set.__data__, {42})
@@ -747,7 +877,8 @@ class ImmutableSetTest(unittest.TestCase):
             im_set.clear()
 
     def test_ior(self):
-        im_set = immutable.ImmutableSet({42})
+        with immutable.ImmutableSet.__im_create__() as factory:
+            im_set = factory({42})
         with im_set.__im_update__() as im_set2:
             im_set2 |= {41}
         self.assertSetEqual(im_set.__data__, {42})
@@ -757,7 +888,8 @@ class ImmutableSetTest(unittest.TestCase):
             im_set |= {41}
 
     def test_iand(self):
-        im_set = immutable.ImmutableSet({42})
+        with immutable.ImmutableSet.__im_create__() as factory:
+            im_set = factory({42})
         with im_set.__im_update__() as im_set2:
             im_set2 &= {41}
         self.assertSetEqual(im_set.__data__, {42})
@@ -767,7 +899,8 @@ class ImmutableSetTest(unittest.TestCase):
             im_set &= {41}
 
     def test_ixor(self):
-        im_set = immutable.ImmutableSet({42})
+        with immutable.ImmutableSet.__im_create__() as factory:
+            im_set = factory({42})
         with im_set.__im_update__() as im_set2:
             im_set2 ^= {41}
         self.assertSetEqual(im_set.__data__, {42})
@@ -777,7 +910,8 @@ class ImmutableSetTest(unittest.TestCase):
             im_set ^= {41}
 
     def test_isub(self):
-        im_set = immutable.ImmutableSet({42})
+        with immutable.ImmutableSet.__im_create__() as factory:
+            im_set = factory({42})
         with im_set.__im_update__() as im_set2:
             im_set2 -= {42}
         self.assertSetEqual(im_set.__data__, {42})
@@ -787,20 +921,24 @@ class ImmutableSetTest(unittest.TestCase):
             im_set -= {42}
 
     def test_contains(self):
-        im_set = immutable.ImmutableSet({42})
+        with immutable.ImmutableSet.__im_create__() as factory:
+            im_set = factory({42})
         self.assertIn(42, im_set)
 
     def test_iter(self):
-        im_set = immutable.ImmutableSet({42})
+        with immutable.ImmutableSet.__im_create__() as factory:
+            im_set = factory({42})
         self.assertEqual(list(iter(im_set)), [42])
 
     def test_len(self):
-        im_set = immutable.ImmutableSet({42})
+        with immutable.ImmutableSet.__im_create__() as factory:
+            im_set = factory({42})
         self.assertEqual(len(im_set), 1)
 
     def test_repr(self):
-        set = immutable.ImmutableSet({42})
-        self.assertEqual(repr(set), '{42}')
+        with immutable.ImmutableSet.__im_create__() as factory:
+            im_set = factory({42})
+        self.assertEqual(repr(im_set), '{42}')
 
 
 class ImmutableListTest(unittest.TestCase):
@@ -810,18 +948,21 @@ class ImmutableListTest(unittest.TestCase):
             verify.verifyClass(interfaces.IImmutable, immutable.ImmutableList))
 
     def test_init(self):
-        lst = immutable.ImmutableList()
+        with immutable.ImmutableList.__im_create__() as factory:
+            lst = factory()
         self.assertEqual(lst.__im_mode__, interfaces.IM_MODE_MASTER)
         self.assertEqual(lst.__im_state__, interfaces.IM_STATE_LOCKED)
 
     def test_init_withInitialList(self):
-        lst = immutable.ImmutableList([42])
+        with immutable.ImmutableList.__im_create__() as factory:
+            lst = factory([42])
         self.assertListEqual(lst.data, [42])
         self.assertEqual(lst.__im_mode__, interfaces.IM_MODE_MASTER)
         self.assertEqual(lst.__im_state__, interfaces.IM_STATE_LOCKED)
 
     def test_im_is_internal_attr(self):
-        im = immutable.ImmutableList()
+        with immutable.ImmutableList.__im_create__() as factory:
+            im = factory()
         self.assertTrue(
             im.__im_is_internal_attr__('__answer__'))
         self.assertTrue(
@@ -830,13 +971,17 @@ class ImmutableListTest(unittest.TestCase):
             im.__im_is_internal_attr__('answer'))
 
     def test_clone(self):
-        im_list = immutable.ImmutableList([42]).__im_clone__()
+        with immutable.ImmutableList.__im_create__() as factory:
+            im_list = factory([42])
+        im_list = im_list.__im_clone__()
         self.assertListEqual(im_list.data, [42])
         self.assertEqual(im_list.__im_mode__, interfaces.IM_MODE_MASTER)
         self.assertEqual(im_list.__im_state__, interfaces.IM_STATE_TRANSIENT)
 
     def test_clone_withImmutableValue(self):
-        im_list = immutable.ImmutableList([[42]]).__im_clone__()
+        with immutable.ImmutableList.__im_create__() as factory:
+            im_list = factory([[42]])
+        im_list = im_list.__im_clone__()
         self.assertIsInstance(
             im_list[0], immutable.ImmutableList)
         self.assertEqual(
@@ -845,14 +990,16 @@ class ImmutableListTest(unittest.TestCase):
             im_list.__im_state__, interfaces.IM_STATE_TRANSIENT)
 
     def test_im_set_state(self):
-        im_list = immutable.ImmutableList([42], im_finalize=False)
+        with immutable.ImmutableList.__im_create__(finalize=False) as factory:
+            im_list = factory([42])
         self.assertEqual(im_list.__im_mode__, interfaces.IM_MODE_MASTER)
         self.assertEqual(im_list.__im_state__, interfaces.IM_STATE_TRANSIENT)
         im_list.__im_set_state__(interfaces.IM_STATE_LOCKED)
         self.assertEqual(im_list.__im_state__, interfaces.IM_STATE_LOCKED)
 
     def test_im_set_state_withImmutableValue(self):
-        im_list = immutable.ImmutableList([[42]], im_finalize=False)
+        with immutable.ImmutableList.__im_create__(finalize=False) as factory:
+            im_list = factory([[42]])
         self.assertEqual(
             im_list.__im_mode__, interfaces.IM_MODE_MASTER)
         self.assertEqual(
@@ -868,7 +1015,8 @@ class ImmutableListTest(unittest.TestCase):
             im_list[0].__im_state__, interfaces.IM_STATE_LOCKED)
 
     def test_attribute_setting(self):
-        im_list = immutable.ImmutableList()
+        with immutable.ImmutableList.__im_create__() as factory:
+            im_list = factory()
         with self.assertRaises(AttributeError):
             im_list.somethingNew = 42
 
@@ -885,7 +1033,8 @@ class ImmutableListTest(unittest.TestCase):
             im_list2.somethingNew = 41
 
     def test_setitem(self):
-        im_list = immutable.ImmutableList([None])
+        with immutable.ImmutableList.__im_create__() as factory:
+            im_list = factory([None])
         with im_list.__im_update__() as im_list2:
             im_list2[0] = 42
         self.assertListEqual(im_list.data, [None])
@@ -895,21 +1044,26 @@ class ImmutableListTest(unittest.TestCase):
             im_list[0] = 42
 
     def test_setitem_withImmutable(self):
-        im_list = immutable.ImmutableList([None])
+        with immutable.ImmutableList.__im_create__() as factory:
+            im_list = factory([None])
         with im_list.__im_update__() as im_list2:
-            im_list2[0] = item = immutable.ImmutableBase(im_finalize=False)
+            im_list2[0] = item = immutable.ImmutableBase()
         self.assertIs(im_list2[0], item)
         self.assertEqual(item.__im_state__, interfaces.IM_STATE_LOCKED)
 
     def test_setitem_withImmutableSlave(self):
-        im_list = immutable.ImmutableList([None])
+        with immutable.ImmutableList.__im_create__() as factory:
+            im_list = factory([None])
         with im_list.__im_update__() as im_list2:
+            with immutable.ImmutableBase.__im_create__(
+                    mode=interfaces.IM_MODE_SLAVE) as factory:
+                item = factory()
             with self.assertRaises(AssertionError):
-                im_list2[0] = immutable.ImmutableBase(
-                    im_mode=interfaces.IM_MODE_SLAVE)
+                im_list2[0] = item
 
     def test_delitem(self):
-        im_list = immutable.ImmutableList([42])
+        with immutable.ImmutableList.__im_create__() as factory:
+            im_list = factory([42])
         with im_list.__im_update__() as im_list2:
             del im_list2[0]
         self.assertListEqual(im_list.data, [42])
@@ -920,7 +1074,8 @@ class ImmutableListTest(unittest.TestCase):
 
     def test_copy(self):
         # copy works on locked objects
-        im_list = immutable.ImmutableList([41, 42])
+        with immutable.ImmutableList.__im_create__() as factory:
+            im_list = factory([41, 42])
         im_list_copy = im_list.copy()
         self.assertListEqual(im_list_copy.data, [41, 42])
 
@@ -931,26 +1086,29 @@ class ImmutableListTest(unittest.TestCase):
             # we do not allow copy on a transient object, it just causes
             # headaches
             with self.assertRaises(AssertionError):
-                im_list3 = im_list2.copy()
+                im_list2.copy()
 
     def test_copy_withMutable(self):
         class AnImmutable(immutable.ImmutableBase):
             pass
 
-        im = AnImmutable()
+        with AnImmutable.__im_create__() as factory:
+            im = factory()
         with im.__im_update__() as im2:
             im2.name = 'foobar'
-        im_list = immutable.ImmutableList([41, 42, im2])
-        im_list_copy = im_list.copy()
+        with immutable.ImmutableList.__im_create__() as factory:
+            im_list = factory([41, 42, im2])
+        im_list.copy()  # this just does not fail
 
         with im_list.__im_update__() as im_list2:
             # we do not allow copy on a transient object, it just causes
             # headaches
             with self.assertRaises(AssertionError):
-                im_list3 = im_list2.copy()
+                im_list2.copy()
 
     def test_append(self):
-        im_list = immutable.ImmutableList()
+        with immutable.ImmutableList.__im_create__() as factory:
+            im_list = factory()
         with im_list.__im_update__() as im_list2:
             im_list2.append(42)
         self.assertListEqual(im_list.data, [])
@@ -960,7 +1118,8 @@ class ImmutableListTest(unittest.TestCase):
             im_list.append(42)
 
     def test_extend(self):
-        im_list = immutable.ImmutableList()
+        with immutable.ImmutableList.__im_create__() as factory:
+            im_list = factory()
         with im_list.__im_update__() as im_list2:
             im_list2.extend([41, 42])
         self.assertListEqual(im_list.data, [])
@@ -973,7 +1132,8 @@ class ImmutableListTest(unittest.TestCase):
         class AnImmutable(immutable.ImmutableBase):
             pass
 
-        im = AnImmutable()
+        with AnImmutable.__im_create__() as factory:
+            im = factory()
         with im.__im_update__() as im2:
             im2.list = immutable.ImmutableList([41, 42]) + [44, 43]
             # make sure we get a transient result
@@ -982,7 +1142,8 @@ class ImmutableListTest(unittest.TestCase):
         self.assertListEqual(im2.list.data, [41, 42, 44, 43])
 
     def test_iadd(self):
-        im_list = immutable.ImmutableList()
+        with immutable.ImmutableList.__im_create__() as factory:
+            im_list = factory()
         with im_list.__im_update__() as im_list2:
             im_list2 += [41, 42]
         self.assertListEqual(im_list.data, [])
@@ -992,7 +1153,8 @@ class ImmutableListTest(unittest.TestCase):
             im_list.extend([41, 42])
 
     def test_imul(self):
-        im_list = immutable.ImmutableList([41, 42])
+        with immutable.ImmutableList.__im_create__() as factory:
+            im_list = factory([41, 42])
         with im_list.__im_update__() as im_list2:
             im_list2 *= 2
         self.assertListEqual(im_list.data, [41, 42])
@@ -1005,7 +1167,11 @@ class ImmutableListTest(unittest.TestCase):
         class AnImmutable(immutable.ImmutableBase):
             pass
 
-        im_list = immutable.ImmutableList([41, 42, AnImmutable()])
+        with AnImmutable.__im_create__() as factory:
+            im2 = factory()
+
+        with immutable.ImmutableList.__im_create__() as factory:
+            im_list = factory([41, 42, im2])
         with im_list.__im_update__() as im_list2:
             # fails because the list would end up with 2x AnImmutable
             # and we do not allow cross referenced objects
@@ -1013,7 +1179,8 @@ class ImmutableListTest(unittest.TestCase):
                 im_list2 *= 2
 
     def test_insert(self):
-        im_list = immutable.ImmutableList()
+        with immutable.ImmutableList.__im_create__() as factory:
+            im_list = factory()
         with im_list.__im_update__() as im_list2:
             im_list2.insert(0, 42)
         self.assertListEqual(im_list.data, [])
@@ -1023,22 +1190,28 @@ class ImmutableListTest(unittest.TestCase):
             im_list.insert(0, 42)
 
     def test_insert_withImmutable(self):
-        im_list = immutable.ImmutableList()
+        with immutable.ImmutableList.__im_create__() as factory:
+            im_list = factory()
         with im_list.__im_update__() as im_list2:
-            item = immutable.ImmutableBase(im_finalize=False)
+            item = immutable.ImmutableBase()
             im_list2.insert(0, item)
         self.assertIs(im_list2[0], item)
         self.assertEqual(item.__im_state__, interfaces.IM_STATE_LOCKED)
 
     def test_insert_withImmutableSlave(self):
-        im_list = immutable.ImmutableList([None])
+        with immutable.ImmutableList.__im_create__() as factory:
+            im_list = factory([None])
         with im_list.__im_update__() as im_list2:
             with self.assertRaises(AssertionError):
-                im_list2.insert(0, immutable.ImmutableBase(
-                    im_mode=interfaces.IM_MODE_SLAVE))
+                with immutable.ImmutableBase.__im_create__(
+                        mode=interfaces.IM_MODE_SLAVE) as factory:
+                    item = factory()
+
+                im_list2.insert(0, item)
 
     def test_pop(self):
-        im_list = immutable.ImmutableList([42])
+        with immutable.ImmutableList.__im_create__() as factory:
+            im_list = factory([42])
         with im_list.__im_update__() as im_list2:
             im_list2.pop()
         self.assertListEqual(im_list.data, [42])
@@ -1048,7 +1221,8 @@ class ImmutableListTest(unittest.TestCase):
             im_list.pop()
 
     def test_remove(self):
-        im_list = immutable.ImmutableList([42])
+        with immutable.ImmutableList.__im_create__() as factory:
+            im_list = factory([42])
         with im_list.__im_update__() as im_list2:
             im_list2.remove(42)
         self.assertListEqual(im_list.data, [42])
@@ -1058,7 +1232,8 @@ class ImmutableListTest(unittest.TestCase):
             im_list.remove(42)
 
     def test_clear(self):
-        im_list = immutable.ImmutableList([42])
+        with immutable.ImmutableList.__im_create__() as factory:
+            im_list = factory([42])
         with im_list.__im_update__() as im_list2:
             im_list2.clear()
         self.assertListEqual(im_list.data, [42])
@@ -1068,7 +1243,8 @@ class ImmutableListTest(unittest.TestCase):
             im_list.clear()
 
     def test_reverse(self):
-        im_list = immutable.ImmutableList([41, 42])
+        with immutable.ImmutableList.__im_create__() as factory:
+            im_list = factory([41, 42])
         with im_list.__im_update__() as im_list2:
             im_list2.reverse()
         self.assertListEqual(im_list.data, [41, 42])
@@ -1078,7 +1254,8 @@ class ImmutableListTest(unittest.TestCase):
             im_list.reverse()
 
     def test_sort(self):
-        im_list = immutable.ImmutableList([43, 41, 42])
+        with immutable.ImmutableList.__im_create__() as factory:
+            im_list = factory([43, 41, 42])
         with im_list.__im_update__() as im_list2:
             im_list2.sort()
         self.assertListEqual(im_list.data, [43, 41, 42])

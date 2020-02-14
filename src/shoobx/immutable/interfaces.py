@@ -54,10 +54,15 @@ class IImmutable(zope.interface.Interface):
     cannot be set. The only exceptions are internal attributes which are
     determined using the `__im_is_internal_attr__(name) -> bool` method.
 
+    Immutables are created using the `__im_create__()` context manager in the
+    following way::
+
+      with Immutable.__im_create__() as factory:
+          im = factory(attr=value)
+
     Immutables are updated using the `__im_update__()` context manager in the
     following way::
 
-      im = Immutable(attr=value)
       with im.__im_update__() as im2:
           im2.attr = value2
 
@@ -165,6 +170,31 @@ class IImmutable(zope.interface.Interface):
         any further write access.
         """
 
+    def __im_create__(
+            cls,
+            mode: str=None,
+            finalize=True,
+            *create_args, **create_kw):
+        """Returns a context manager allowing the `cls` class to be instantiated
+
+        Within the context you can set any attribute on the object,
+        call any method to setup the initial state.
+        Exiting the context shall finalize the object.
+
+        * `mode`: gets set on the object as it's `__im_mode__`
+        * `finalize`: the object gets finalized at the very end
+        * `create_args`, `create_kw`: get passed to `cls.__im_after_create__`
+          right after `cls.__init__` is called, thus allowing to set e.g.
+          `creator` before the object is finalized
+
+        """
+
+    def __im_after_create__(*args, **kw):
+        """Hook called right after `__im_create__` factory called `__init__`
+
+        The just created object is still in transient state.
+        """
+
     def __im_before_update__(clone):
         """Hook called before `__im_update__()`
 
@@ -237,12 +267,12 @@ class IRevisionedImmutableManager(zope.interface.Interface):
 
     def getRevisionHistory(
             obj,
-            creator:str=None,
-            comment:str=None,
-            startBefore:datetime.datetime=None,
-            startAfter:datetime.datetime=None,
-            batchStart:int=0, batchSize:int=None,
-            reversed:bool=False):
+            creator: str=None,
+            comment: str=None,
+            startBefore: datetime.datetime=None,
+            startAfter: datetime.datetime=None,
+            batchStart: int=0, batchSize: int=None,
+            reversed: bool=False):
         """Returns an iterable of object revisions in chronological order.
 
         The following arguments filter the search results:
@@ -383,4 +413,10 @@ class IRevisionedImmutable(IImmutable):
 
         If `__im_manager__` is set,
         `__im_manager__.addRevision(clone, old=self)` must be called.
+        """
+
+    def __im_after_create__(creator=None, comment=None):
+        """Hook called right after `__im_create__` factory called `__init__`
+
+        The just created object is still in transient state.
         """

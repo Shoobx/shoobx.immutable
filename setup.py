@@ -39,6 +39,7 @@ TESTS_REQUIRE = [
     'mock',
     'pjpersist[test]',
     'zope.testrunner',
+    'flake8',
     ]
 
 setup (
