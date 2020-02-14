@@ -3,7 +3,7 @@ CHANGES
 =======
 
 
-1.4.0 (unreleased)
+1.4.0 (2020-02-14)
 ------------------
 
 - Changed the pattern of creating an immutable object to a context manager.
