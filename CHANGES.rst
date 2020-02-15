@@ -3,7 +3,7 @@ CHANGES
 =======
 
 
-1.4.1 (unreleased)
+1.4.1 (2020-02-15)
 ------------------
 
 - Missed to re-export `shoobx.immutable.immutable.create` as
