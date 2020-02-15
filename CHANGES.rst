@@ -6,7 +6,7 @@ CHANGES
 1.4.1 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Missed to re-export `shoobx.immutable.immutable.create`
 
 
 1.4.0 (2020-02-14)
