@@ -24,7 +24,7 @@ nested objects.
 
 In addition, support for revisioned immutables is provided, which allows for
 full revision histories of an immutable. A sample implementation of a
-revisioned immutable maanger is also provided.
+revisioned immutable manager is also provided.
 
 Optional: A pjpersist-based storage mechanism for revisioned immutables is
 provided, which allows for easy storage of versioned immutables.
