@@ -44,7 +44,7 @@ TESTS_REQUIRE = [
 
 setup (
     name="shoobx.immutable",
-    version='1.4.3.dev0',
+    version='1.4.3',
     author="Shoobx, Inc.",
     author_email="dev@shoobx.com",
     description="Immutable Types",

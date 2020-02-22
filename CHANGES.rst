@@ -3,7 +3,7 @@ CHANGES
 =======
 
 
-1.4.3 (unreleased)
+1.4.3 (2020-02-22)
 ------------------
 
 - Make sure that `ImmutableContainer` does not accept transient objects. This
