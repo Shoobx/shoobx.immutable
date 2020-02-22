@@ -296,9 +296,11 @@ class SimpleRevisionedImmutableManagerTest(unittest.TestCase):
 
     def test_addRevision(self):
         rimm = revisioned.SimpleRevisionedImmutableManager()
+
         with revisioned.RevisionedImmutable.__im_create__() as factory:
             rim = factory()
         rimm.addRevision(rim)
+
         self.assertListEqual(rimm.__data__, [rim])
         self.assertIsNotNone(rim.__im_start_on__)
         self.assertIs(rim.__im_manager__, rimm)
@@ -314,6 +316,15 @@ class SimpleRevisionedImmutableManagerTest(unittest.TestCase):
         self.assertIs(rim.__im_manager__, rimm)
         self.assertIsNotNone(rim2.__im_end_on__)
         self.assertEqual(rim2.__im_state__, interfaces.IM_STATE_RETIRED)
+
+    def test_addRevision(self):
+        rimm = revisioned.SimpleRevisionedImmutableManager()
+        rim = revisioned.RevisionedImmutable()
+        self.assertNotEqual(rim.__im_state__, interfaces.IM_STATE_LOCKED)
+
+        # Objects in a non-locked state *cannot* be added.
+        with self.assertRaises(AssertionError):
+            rimm.addRevision(rim)
 
 
 class RevisionedMappingTest(unittest.TestCase):

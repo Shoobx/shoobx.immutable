@@ -129,6 +129,8 @@ class ImmutableContainer(pjcontainer.AllItemsPJContainer):
         return obj
 
     def add(self, obj, key=None):
+        assert obj.__im_state__ == interfaces.IM_STATE_LOCKED, obj.__im_state__
+
         res = super().add(obj, key)
         self.addRevision(obj)
         return res
@@ -227,6 +229,8 @@ class ImmutableContainer(pjcontainer.AllItemsPJContainer):
         self._cache[revision.__name__] = revision
 
     def addRevision(self, new, old=None):
+        assert new.__im_state__ == interfaces.IM_STATE_LOCKED, new.__im_state__
+
         now = self.now()
         if old is not None:
             old.__im_end_on__ = now
@@ -237,15 +241,20 @@ class ImmutableContainer(pjcontainer.AllItemsPJContainer):
         self._pj_jar.register(new)
         self._cache[new.__name__] = new
 
+    def __setitem__(self, key, value):
+        assert value.__im_state__ == interfaces.IM_STATE_LOCKED, \
+               value.__im_state__
+        super().__setitem__(key, value)
+
     def __delitem__(self, key):
         super().__delitem__(key)
 
-        # need to make sure that all revisions get deleted
+        # We need to make sure that all revisions get deleted.
         cur = self._pj_jar.getCursor()
         qry = self._combine_filters(
             self._pj_get_resolve_filter_all_versions(),
             sb.Field(self._pj_table, self._pj_mapping_key) == key
         )
-        # this DELETE works fine just because `execute` checks all SQL commands
-        # and calls PJDataManager.setDirty accordingly
+        # This DELETE works fine just because `execute()` checks all SQL
+        # commands and calls `PJDataManager.setDirty()` accordingly.
         cur.execute(sb.Delete(self._pj_table, qry))

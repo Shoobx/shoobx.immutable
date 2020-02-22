@@ -98,6 +98,8 @@ class SimpleRevisionedImmutableManager:
         return iter(result)
 
     def addRevision(self, new, old=None):
+        assert new.__im_state__ == interfaces.IM_STATE_LOCKED, new.__im_state__
+
         now = self.now()
         if old is not None:
             old.__im_end_on__ = now
@@ -105,7 +107,6 @@ class SimpleRevisionedImmutableManager:
 
         new.__im_start_on__ = now
         new.__im_manager__ = self
-        assert new.__im_state__ == interfaces.IM_STATE_LOCKED, new.__im_state__
         self.__data__.append(new)
 
     def rollbackToRevision(self, revision, activate=True):

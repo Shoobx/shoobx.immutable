@@ -6,7 +6,13 @@ CHANGES
 1.4.3 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Make sure that `ImmutableContainer` does not accept transient objects. This
+  is particularly important since objects can be initialized in transient
+  state when not using the `create()` context manager. It also protects the
+  object from being updated in a container before completing its update.
+
+- Refactored `__delitem__` tests to be more minimal and document the use cases
+  more clearly.
 
 
 1.4.2 (2020-02-15)

@@ -223,15 +223,26 @@ class ImmutableContainerTest(unittest.TestCase):
         self.assertEqual(loaded.answer, 42)
 
     def test_add(self):
-        im = pjpersist.Immutable()
+        with pjpersist.Immutable.__im_create__() as factory:
+            im = factory()
+
         self.cont.add(im)
+
         self.assertIn(
             id(im), self.dm._registered_objects)
         self.assertIsNotNone(im.__im_start_on__)
         self.assertIsNone(im.__im_end_on__)
 
-    def test_getCurrentRevision(self):
+    def test_add_withTransientObject(self):
         im = pjpersist.Immutable()
+        self.assertNotEqual(im.__im_state__, interfaces.IM_STATE_LOCKED)
+        # Objects in a non-locked state *cannot* be added.
+        with self.assertRaises(AssertionError):
+            self.cont.add(im)
+
+    def test_getCurrentRevision(self):
+        with pjpersist.Immutable.__im_create__() as factory:
+            im = factory()
         self.cont.add(im)
         self.assertIs(self.cont.getCurrentRevision(im), im)
 
@@ -427,12 +438,159 @@ class ImmutableDatabaseTest(testing.PJTestCase):
         with Question.__im_create__() as factory:
             q1 = factory('What is the answer')
         self.questions.add(q1)
-        q2 = q1.__im_clone__()
+
+        with q1.__im_update__() as q2:
+            q2.answer = 42
+
         self.questions.addRevision(q2, old=q1)
+
         self.assertEqual(q1.__im_state__, interfaces.IM_STATE_RETIRED)
         self.assertIsNotNone(q1.__im_end_on__)
+        self.assertEqual(q2.__im_state__, interfaces.IM_STATE_LOCKED)
+        self.assertIsNone(q2.__im_end_on__)
+
+    def test_addRevision_withTransientObject(self):
+        with Question.__im_create__() as factory:
+            q1 = factory('What is the answer')
+        self.questions.add(q1)
+
+        q2 = q1.__im_clone__()
+        self.assertNotEqual(q2.__im_state__, interfaces.IM_STATE_LOCKED)
+
+        # Objects in a non-locked state *cannot* be added.
+        with self.assertRaises(AssertionError):
+            self.questions.addRevision(q2, old=q1)
+
         self.assertEqual(q2.__im_state__, interfaces.IM_STATE_TRANSIENT)
         self.assertIsNone(q2.__im_end_on__)
+
+    def test_setitem(self):
+        self.dm._ensure_sql_columns(Question(), 'questions')
+        with Question.__im_create__() as factory:
+            q1 = factory('What is the answer')
+
+        self.questions['q1'] = q1
+        self.assertEqual(list(self.questions), ['q1'])
+
+    def test_setitem_withTransientObject(self):
+        q1 = Question('What is the answer')
+        self.assertNotEqual(q1.__im_state__, interfaces.IM_STATE_LOCKED)
+
+        # Objects in a non-locked state *cannot* be added.
+        with self.assertRaises(AssertionError):
+            self.questions['q1'] = q1
+
+    def test_delitem(self):
+        # Create a question with multiple versions.
+        with Question.__im_create__() as factory:
+            q1_1 = factory('What is the answer')
+        self.questions.add(q1_1)
+        with q1_1.__im_update__() as q1_2:
+            q1_2.answer = 42
+        transaction.commit()
+        self.assertEqual(len(self.questions), 1)
+        self.assertEqual(q1_1.__name__, q1_2.__name__)
+
+        # Create a second question with multiple versions.
+        with Question.__im_create__() as factory:
+            q2_1 = factory('What is 3 * 4?')
+        self.questions.add(q2_1)
+        with q2_1.__im_update__() as q2_2:
+            q2_2.answer = 9
+        with q2_2.__im_update__() as q2_3:
+            q2_3.answer = 3
+        transaction.commit()
+        self.assertEqual(len(self.questions), 2)
+
+        # Now let's look into the DB table directly to ensure that we have 5
+        # rows, 2 versions of q1 and 3 versions of q2.
+        cur = self.questions._pj_jar.getCursor()
+        cur.execute("SELECT * FROM questions")
+        result = list(cur.fetchall())
+        self.assertEqual(len(result), 5)
+
+        # Let's now delete q1.
+        del self.questions[q1_2.__name__]
+        self.assertEqual(len(self.questions), 1)
+
+        # Let's check the DB table again. All revisions of q1 should be
+        # deleted, which means we should only see 3 rows for the 3 revisions
+        # of q2.
+        cur.execute("SELECT * FROM questions")
+        result = list(cur.fetchall())
+        self.assertEqual(len(result), 3)
+
+    def test_delitem_withAdditionalQueryFilter(self):
+        self.dm._ensure_sql_columns(Question(), 'questions')
+
+        # Create a new topic container with two questions.
+        qns1 = TransientCategorizedQuestions('topic1')
+
+        with Question.__im_create__() as factory:
+            q1_1 = factory("What is the answer?", '42', 'topic1')
+            q1_2 = factory("What iss the real answer?", 'unknown', 'topic1')
+        qns1.add(q1_1, key='q1')
+        qns1.add(q1_2, key='q2')
+        transaction.commit()
+        self.assertEqual(len(qns1), 2)
+
+        # Create a second topic with three more  questions. Note that the
+        # first two questions have the same name as the questions in topic 1.
+        qns2 = TransientCategorizedQuestions('topic2')
+        with Question.__im_create__() as factory:
+            q2_1 = factory("Is Earth gone?", 'yes', 'topic2')
+            q2_2 = factory("Is Mars gone?", 'no', 'topic2')
+            q2_3 = factory("Is Pluto gone?", 'unknown', 'topic2')
+        qns2.add(q2_1, key='q1')
+        qns2.add(q2_2, key='q2')
+        qns2.add(q2_3, key='q3')
+        transaction.commit()
+        self.assertEqual(len(qns2), 3)
+
+        # Now let's look into the DB table directly to ensure that we have 5
+        # rows, 2 objects from topic1 (1 version each) and 3 objects from
+        # topic 2 (1 version each).
+        cur = self.questions._pj_jar.getCursor()
+        cur.execute("SELECT * FROM questions")
+        result = list(cur.fetchall())
+        self.assertEqual(len(result), 5)
+
+        # Deletion -- whihc deletes all revisions of an object by name -- must
+        # take `_pj_get_resolve_filter` into account, so that it does not
+        # delete objects from another container.
+        del qns1['q1']
+        transaction.commit()
+
+        # Reload all containers so caches don't spoil the picture.
+        qns1 = TransientCategorizedQuestions('topic1')
+        self.assertEqual(len(qns1), 1)
+        qns2 = TransientCategorizedQuestions('topic2')
+        self.assertEqual(len(qns2), 3)
+
+        # Let's check the DB table again. All revisions of q1 in topic1 should
+        # be deleted, which means we should only see 4 rows now, 1 row for q2
+        # in topic 1 and 3 rows for the 3 questions in topic 2.
+        cur = self.questions._pj_jar.getCursor()
+        cur.execute("SELECT * FROM questions")
+        result = list(cur.fetchall())
+        self.assertEqual(len(result), 4)
+
+        # Clearing a container should also not overstep its bounds.
+        qns2.clear()
+        transaction.commit()
+
+        # Reload all containers so caches don't spoil the picture.
+        qns1 = TransientCategorizedQuestions('topic1')
+        self.assertEqual(len(qns1), 1)
+        qns2 = TransientCategorizedQuestions('topic2')
+        self.assertEqual(len(qns2), 0)
+
+        # Let's check the DB table. This time only 1 row for q2 of topic 1
+        # should be left.
+        cur = self.questions._pj_jar.getCursor()
+        cur.execute("SELECT * FROM questions")
+        result = list(cur.fetchall())
+        self.assertEqual(len(result), 1)
 
     def test_functional(self):
         with Question.__im_create__() as factory:
@@ -479,145 +637,3 @@ class ImmutableDatabaseTest(testing.PJTestCase):
         rev1, = revs
         self.assertIsNone(rev1.__im_end_on__)
         self.assertEqual(rev1._p_oid.id, q._p_oid.id)
-
-    def test_delete(self):
-        with Question.__im_create__() as factory:
-            q1 = factory('What is the answer')
-        self.questions.add(q1)
-        self.assertEqual(len(self.questions), 1)
-        with q1.__im_update__() as q2:
-            q2.answer = 42
-        transaction.commit()
-        self.assertEqual(len(self.questions), 1)
-        self.assertEqual(q1.__name__, q2.__name__)
-
-        with Question.__im_create__() as factory:
-            anotherq = factory('Another trivia')
-        self.questions.add(anotherq)
-
-        with anotherq.__im_update__() as anotherq2:
-            anotherq2.answer = 9
-        transaction.commit()
-
-        with anotherq2.__im_update__() as anotherq3:
-            anotherq3.answer = 3
-        transaction.commit()
-
-        self.assertEqual(len(self.questions), 2)
-
-        cur = self.questions._pj_jar.getCursor()
-
-        # read directly the table to avoid any filtering by pjpersist
-        cur.execute("SELECT * FROM questions")
-        result = list(cur.fetchall())
-        self.assertEqual(len(result), 2+3)  # 2 revs of q1, 3 of anotherq
-
-        # delete the object
-        del self.questions[q1.__name__]
-        self.assertEqual(len(self.questions), 1)
-
-        cur.execute("SELECT * FROM questions")
-        result = list(cur.fetchall())
-
-        # that should delete all revisions
-        self.assertEqual(len(result), 3)  # 3 revs of anotherq
-
-    def test_delete_categorized(self):
-        # revision delete must take _pj_get_resolve_filter into account
-        # just in case we have the same `name` in more Transient containers
-        qnsMath = TransientCategorizedQuestions('math')
-
-        with Question.__im_create__() as factory:
-            qMath1 = factory('1+1', '2', 'math')
-        qMath1.name = 'basic'
-        qnsMath.add(qMath1)
-        transaction.commit()
-        with qMath1.__im_update__() as qMath1:
-            qMath1.answer = 2
-        transaction.commit()
-
-        with Question.__im_create__() as factory:
-            qMath2 = factory('5*4', '20', 'math')
-        qMath2.name = 'second'
-        qnsMath.add(qMath2)
-        transaction.commit()
-        with qMath2.__im_update__() as qMath2:
-            qMath2.answer = 20
-        transaction.commit()
-
-        qnsLang = TransientCategorizedQuestions('language')
-        with Question.__im_create__() as factory:
-            qLang1 = factory('table', 'der tisch', 'language')
-        qLang1.name = 'basic'
-        qnsLang.add(qLang1)
-        transaction.commit()
-        with qLang1.__im_update__() as qLang1:
-            qLang1.answer = 'der Tisch'
-        transaction.commit()
-
-        with Question.__im_create__() as factory:
-            qLang2 = factory('window', 'das Fenster', 'language')
-        qLang2.name = 'second'
-        qnsLang.add(qLang2)
-        transaction.commit()
-
-        with Question.__im_create__() as factory:
-            qLang3 = factory('world', 'die Welt', 'language')
-        qnsLang.add(qLang3)
-        transaction.commit()
-
-        with Question.__im_create__() as factory:
-            qHist1 = factory('Rome founded', '21 April 753', 'history')
-        with qHist1.__im_update__() as qHist1:
-            qHist1.answer = '21 April 753 BCE'
-        qnsHist = TransientCategorizedQuestions('history')
-        qnsHist.add(qHist1)
-        transaction.commit()
-
-        self.assertEqual(len(qnsMath), 2)
-        self.assertEqual(len(qnsLang), 3)
-        self.assertEqual(len(qnsHist), 1)
-
-        # count all versions
-        cur = self.questions._pj_jar.getCursor()
-        cur.execute("SELECT * FROM questions")
-        result = list(cur.fetchall())
-        self.assertEqual(len(result), 4+4+1)
-
-        # remove just the ONE Question from math
-        del qnsMath['basic']
-        transaction.commit()
-
-        # reload all containers so caches don't spoil the picture
-        qnsMath = TransientCategorizedQuestions('math')
-        qnsLang = TransientCategorizedQuestions('language')
-        qnsHist = TransientCategorizedQuestions('history')
-
-        self.assertEqual(len(qnsMath), 1)
-        self.assertEqual(len(qnsLang), 3)
-        self.assertEqual(len(qnsHist), 1)
-
-        # count all versions
-        cur = self.questions._pj_jar.getCursor()
-        cur.execute("SELECT * FROM questions")
-        result = list(cur.fetchall())
-        self.assertEqual(len(result), 2+4+1)
-
-        # clear just the language Questions
-        qnsLang.clear()
-        transaction.commit()
-
-        # reload all containers so caches don't spoil the picture
-        qnsMath = TransientCategorizedQuestions('math')
-        qnsLang = TransientCategorizedQuestions('language')
-        qnsHist = TransientCategorizedQuestions('history')
-
-        self.assertEqual(len(qnsMath), 1)
-        self.assertEqual(len(qnsLang), 0)
-        self.assertEqual(len(qnsHist), 1)
-
-        # count all versions
-        cur = self.questions._pj_jar.getCursor()
-        cur.execute("SELECT * FROM questions")
-        result = list(cur.fetchall())
-        self.assertEqual(len(result), 2+0+1)
