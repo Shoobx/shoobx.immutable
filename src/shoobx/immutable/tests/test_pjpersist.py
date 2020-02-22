@@ -224,14 +224,24 @@ class ImmutableContainerTest(unittest.TestCase):
 
     def test_add(self):
         im = pjpersist.Immutable()
+
+        # can NOT add a transient object
+        with self.assertRaises(AssertionError):
+            self.cont.add(im)
+
+        with pjpersist.Immutable.__im_create__() as factory:
+            im = factory()
+
         self.cont.add(im)
+
         self.assertIn(
             id(im), self.dm._registered_objects)
         self.assertIsNotNone(im.__im_start_on__)
         self.assertIsNone(im.__im_end_on__)
 
     def test_getCurrentRevision(self):
-        im = pjpersist.Immutable()
+        with pjpersist.Immutable.__im_create__() as factory:
+            im = factory()
         self.cont.add(im)
         self.assertIs(self.cont.getCurrentRevision(im), im)
 
@@ -427,8 +437,17 @@ class ImmutableDatabaseTest(testing.PJTestCase):
         with Question.__im_create__() as factory:
             q1 = factory('What is the answer')
         self.questions.add(q1)
+
         q2 = q1.__im_clone__()
-        self.questions.addRevision(q2, old=q1)
+        with self.assertRaises(AssertionError):
+            # can NOT add a transient object
+            self.questions.addRevision(q2, old=q1)
+
+        with q1.__im_update__() as q3:
+            q3.answer = 42
+
+        self.questions.addRevision(q3, old=q1)
+
         self.assertEqual(q1.__im_state__, interfaces.IM_STATE_RETIRED)
         self.assertIsNotNone(q1.__im_end_on__)
         self.assertEqual(q2.__im_state__, interfaces.IM_STATE_TRANSIENT)

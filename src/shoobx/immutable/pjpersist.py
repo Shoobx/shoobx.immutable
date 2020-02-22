@@ -129,6 +129,8 @@ class ImmutableContainer(pjcontainer.AllItemsPJContainer):
         return obj
 
     def add(self, obj, key=None):
+        assert obj.__im_state__ == interfaces.IM_STATE_LOCKED, obj.__im_state__
+
         res = super().add(obj, key)
         self.addRevision(obj)
         return res
@@ -227,6 +229,8 @@ class ImmutableContainer(pjcontainer.AllItemsPJContainer):
         self._cache[revision.__name__] = revision
 
     def addRevision(self, new, old=None):
+        assert new.__im_state__ == interfaces.IM_STATE_LOCKED, new.__im_state__
+
         now = self.now()
         if old is not None:
             old.__im_end_on__ = now
@@ -236,6 +240,11 @@ class ImmutableContainer(pjcontainer.AllItemsPJContainer):
         new.__im_start_on__ = now
         self._pj_jar.register(new)
         self._cache[new.__name__] = new
+
+    def __setitem__(self, key, value):
+        assert value.__im_state__ == interfaces.IM_STATE_LOCKED, \
+               value.__im_state__
+        super().__setitem__(key, value)
 
     def __delitem__(self, key):
         super().__delitem__(key)

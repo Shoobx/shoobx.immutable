@@ -6,8 +6,8 @@ CHANGES
 1.4.3 (unreleased)
 ------------------
 
-- Nothing changed yet.
-
+- Make sure that `ImmutableContainer` does not accept transient objects.
+  That just breaks the world.
 
 1.4.2 (2020-02-15)
 ------------------

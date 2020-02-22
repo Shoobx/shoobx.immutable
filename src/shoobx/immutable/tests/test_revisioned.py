@@ -296,9 +296,16 @@ class SimpleRevisionedImmutableManagerTest(unittest.TestCase):
 
     def test_addRevision(self):
         rimm = revisioned.SimpleRevisionedImmutableManager()
+        rim = revisioned.RevisionedImmutable()
+
+        # can NOT add a transient object
+        with self.assertRaises(AssertionError):
+            rimm.addRevision(rim)
+
         with revisioned.RevisionedImmutable.__im_create__() as factory:
             rim = factory()
         rimm.addRevision(rim)
+
         self.assertListEqual(rimm.__data__, [rim])
         self.assertIsNotNone(rim.__im_start_on__)
         self.assertIs(rim.__im_manager__, rimm)
