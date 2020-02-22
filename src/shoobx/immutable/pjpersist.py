@@ -249,12 +249,12 @@ class ImmutableContainer(pjcontainer.AllItemsPJContainer):
     def __delitem__(self, key):
         super().__delitem__(key)
 
-        # need to make sure that all revisions get deleted
+        # We need to make sure that all revisions get deleted.
         cur = self._pj_jar.getCursor()
         qry = self._combine_filters(
             self._pj_get_resolve_filter_all_versions(),
             sb.Field(self._pj_table, self._pj_mapping_key) == key
         )
-        # this DELETE works fine just because `execute` checks all SQL commands
-        # and calls PJDataManager.setDirty accordingly
+        # This DELETE works fine just because `execute()` checks all SQL
+        # commands and calls `PJDataManager.setDirty()` accordingly.
         cur.execute(sb.Delete(self._pj_table, qry))

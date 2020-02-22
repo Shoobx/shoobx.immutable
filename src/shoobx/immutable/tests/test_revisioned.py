@@ -296,11 +296,6 @@ class SimpleRevisionedImmutableManagerTest(unittest.TestCase):
 
     def test_addRevision(self):
         rimm = revisioned.SimpleRevisionedImmutableManager()
-        rim = revisioned.RevisionedImmutable()
-
-        # can NOT add a transient object
-        with self.assertRaises(AssertionError):
-            rimm.addRevision(rim)
 
         with revisioned.RevisionedImmutable.__im_create__() as factory:
             rim = factory()
@@ -321,6 +316,15 @@ class SimpleRevisionedImmutableManagerTest(unittest.TestCase):
         self.assertIs(rim.__im_manager__, rimm)
         self.assertIsNotNone(rim2.__im_end_on__)
         self.assertEqual(rim2.__im_state__, interfaces.IM_STATE_RETIRED)
+
+    def test_addRevision(self):
+        rimm = revisioned.SimpleRevisionedImmutableManager()
+        rim = revisioned.RevisionedImmutable()
+        self.assertNotEqual(rim.__im_state__, interfaces.IM_STATE_LOCKED)
+
+        # Objects in a non-locked state *cannot* be added.
+        with self.assertRaises(AssertionError):
+            rimm.addRevision(rim)
 
 
 class RevisionedMappingTest(unittest.TestCase):
