@@ -52,6 +52,11 @@ class Questions(pjpersist.ImmutableContainer):
     _pj_table = 'questions'
 
 
+class NoRemovalQuestions(pjpersist.ImmutableContainer):
+    _pj_table = 'questions'
+    _pj_remove_documents = False
+
+
 class TransientCategorizedQuestions(pjpersist.ImmutableContainer):
     _pj_table = 'questions'
     category = None
@@ -591,6 +596,38 @@ class ImmutableDatabaseTest(testing.PJTestCase):
         cur.execute("SELECT * FROM questions")
         result = list(cur.fetchall())
         self.assertEqual(len(result), 1)
+
+    def test_delitem_withoutPjDocumentDeletion(self):
+        questions = NoRemovalQuestions()
+        # 2. Create a question with multiple versions.
+        with Question.__im_create__() as factory:
+            q1_1 = factory('What is the answer')
+        questions.add(q1_1)
+        with q1_1.__im_update__() as q1_2:
+            q1_2.answer = 42
+        transaction.commit()
+        self.assertEqual(len(questions), 1)
+        self.assertEqual(q1_1.__name__, q1_2.__name__)
+
+        # Now let's look into the DB table directly to ensure that we have 2
+        # rows, 2 versions of q1.
+        cur = questions._pj_jar.getCursor()
+        cur.execute("SELECT * FROM questions")
+        result = list(cur.fetchall())
+        self.assertEqual(len(result), 2)
+
+        # Let's now delete q1.
+        del questions[q1_2.__name__]
+        self.assertEqual(len(questions), 0)
+
+        # Let's check the DB table again. We should still have 2 rows, but all
+        # of them should have an end date and be in th eretired state.
+        cur.execute("SELECT * FROM questions")
+        result = list(cur.fetchall())
+        self.assertEqual(len(result), 2)
+        for q1_ver in result:
+            self.assertIsNotNone(q1_ver['endon'])
+            self.assertEqual(q1_ver['data']['__im_state__'], 'retired')
 
     def test_functional(self):
         with Question.__im_create__() as factory:

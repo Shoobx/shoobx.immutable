@@ -3,10 +3,12 @@ CHANGES
 =======
 
 
-1.4.4 (unreleased)
+1.5.0 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Honot the ``_pj_remove_documents`` flag in the pjpersist
+  ``ImmutableContainer``. This way deletions can be undone. Also, audit logs
+  can now be complete.
 
 
 1.4.3 (2020-02-22)

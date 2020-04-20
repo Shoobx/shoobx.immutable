@@ -14,6 +14,8 @@ from pjpersist.zope import container as pjcontainer
 
 from shoobx.immutable import interfaces, revisioned
 
+DELETION_MODE_REMOVE = 'remove'
+DELETION_MODE_RETIRE = 'retire'
 
 class NoOpProperty:
 
@@ -247,14 +249,22 @@ class ImmutableContainer(pjcontainer.AllItemsPJContainer):
         super().__setitem__(key, value)
 
     def __delitem__(self, key):
-        super().__delitem__(key)
-
-        # We need to make sure that all revisions get deleted.
-        cur = self._pj_jar.getCursor()
-        qry = self._combine_filters(
-            self._pj_get_resolve_filter_all_versions(),
-            sb.Field(self._pj_table, self._pj_mapping_key) == key
-        )
-        # This DELETE works fine just because `execute()` checks all SQL
-        # commands and calls `PJDataManager.setDirty()` accordingly.
-        cur.execute(sb.Delete(self._pj_table, qry))
+        value = self[key]
+        value.__im_end_on__ = self.now()
+        value.__im_state__ = interfaces.IM_STATE_RETIRED
+        self._pj_jar.register(value)
+        if self._pj_remove_documents:
+            # We need to make sure that all revisions get deleted.
+            cur = self._pj_jar.getCursor()
+            qry = self._combine_filters(
+                self._pj_get_resolve_filter_all_versions(),
+                sb.Field(self._pj_table, self._pj_mapping_key) == key
+            )
+            # This DELETE works fine just because `execute()` checks all SQL
+            # commands and calls `PJDataManager.setDirty()` accordingly.
+            cur.execute(sb.Delete(self._pj_table, qry))
+        # Remove the object from the container cache.
+        if pjcontainer.USE_CONTAINER_CACHE:
+            self._cache.pop(key, None)
+        # Send the uncontained event.
+        pjcontainer.contained.uncontained(value, self, key)
