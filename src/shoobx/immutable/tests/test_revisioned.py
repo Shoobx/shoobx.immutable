@@ -13,6 +13,35 @@ from zope.interface import verify
 from shoobx.immutable import interfaces, revisioned
 
 
+class DefaultRevisionInfoTest(unittest.TestCase):
+
+    def test_attributes(self):
+        info = revisioned.DefaultRevisionInfo()
+        self.assertIsNone(info.creator)
+        self.assertIsNone(info.comment)
+
+    def test_setAttributes(self):
+        info = revisioned.DefaultRevisionInfo()
+        info.creator = 'arthur'
+        info.comment = 'answer'
+        self.assertEqual(info.creator, 'arthur')
+        self.assertEqual(info.comment, 'answer')
+
+    def test_defaultInfo(self):
+        self.assertEqual(revisioned.DEFAULT_REVISION_INFO.creator, None)
+        self.assertEqual(revisioned.DEFAULT_REVISION_INFO.comment, None)
+        with revisioned.defaultInfo('arthur', 'answer') as info:
+            self.assertEqual(info.creator, 'arthur')
+            self.assertEqual(info.comment, 'answer')
+            self.assertEqual(
+                revisioned.DEFAULT_REVISION_INFO.creator, 'arthur')
+            self.assertEqual(
+                revisioned.DEFAULT_REVISION_INFO.comment, 'answer')
+
+        self.assertEqual(revisioned.DEFAULT_REVISION_INFO.creator, None)
+        self.assertEqual(revisioned.DEFAULT_REVISION_INFO.comment, None)
+
+
 class RevisionedImmutableBaseTest(unittest.TestCase):
 
     def test_verifyInterface(self):
@@ -52,6 +81,18 @@ class RevisionedImmutableBaseTest(unittest.TestCase):
         self.assertIsNot(im, im2)
         self.assertTrue(manager.addRevision.called)
         self.assertEqual(manager.addRevision.call_args, ((im2,), {'old': im}))
+
+    def test_im_update_withDefaultInfo(self):
+        with revisioned.RevisionedImmutableBase.__im_create__() as factory:
+            im = factory()
+        with im.__im_update__(creator='universe', comment='Get answer') as im2:
+            im2.answer = 42
+        self.assertIsNot(im, im2)
+        self.assertEqual(im2.answer, 42)
+        self.assertEqual(im2.__im_state__, interfaces.IM_STATE_LOCKED)
+        self.assertEqual(im2.__im_version__, 1)
+        self.assertEqual(im2.__im_creator__, 'universe')
+        self.assertEqual(im2.__im_comment__, 'Get answer')
 
     def test_im_update_withTransientImmutable(self):
         with revisioned.RevisionedImmutableBase.__im_create__(
@@ -317,7 +358,7 @@ class SimpleRevisionedImmutableManagerTest(unittest.TestCase):
         self.assertIsNotNone(rim2.__im_end_on__)
         self.assertEqual(rim2.__im_state__, interfaces.IM_STATE_RETIRED)
 
-    def test_addRevision(self):
+    def test_addRevision_inTransientState(self):
         rimm = revisioned.SimpleRevisionedImmutableManager()
         rim = revisioned.RevisionedImmutable()
         self.assertNotEqual(rim.__im_state__, interfaces.IM_STATE_LOCKED)

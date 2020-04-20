@@ -14,8 +14,6 @@ from pjpersist.zope import container as pjcontainer
 
 from shoobx.immutable import interfaces, revisioned
 
-DELETION_MODE_REMOVE = 'remove'
-DELETION_MODE_RETIRE = 'retire'
 
 class NoOpProperty:
 

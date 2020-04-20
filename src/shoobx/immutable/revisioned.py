@@ -4,12 +4,32 @@
 #
 ###############################################################################
 """Revisioned Immutable and Container."""
-
 import collections.abc
 import datetime
+import threading
 import zope.interface
+from contextlib import contextmanager
 
 from shoobx.immutable import immutable, interfaces
+
+
+class DefaultRevisionInfo(threading.local):
+    creator: str = None
+    comment: str = None
+
+
+DEFAULT_REVISION_INFO = DefaultRevisionInfo()
+
+
+@contextmanager
+def defaultInfo(creator=None, comment=None):
+    DEFAULT_REVISION_INFO.creator = creator
+    DEFAULT_REVISION_INFO.comment = comment
+    try:
+        yield DEFAULT_REVISION_INFO
+    finally:
+        DEFAULT_REVISION_INFO.creator = None
+        DEFAULT_REVISION_INFO.comment = None
 
 
 @zope.interface.implementer(interfaces.IRevisionedImmutable)
@@ -28,8 +48,10 @@ class RevisionedImmutableBase(immutable.ImmutableBase):
 
     def __im_before_update__(self, clone, creator=None, comment=None):
         # Assign the update information to the clone:
-        clone.__im_creator__ = creator
-        clone.__im_comment__ = comment
+        clone.__im_creator__ = creator \
+            if creator is not None else DEFAULT_REVISION_INFO.creator
+        clone.__im_comment__ = comment \
+            if comment is not None else DEFAULT_REVISION_INFO.comment
         clone.__im_version__ = self.__im_version__ + 1
 
     def __im_after_update__(self, clone, creator=None, comment=None):

@@ -6,9 +6,13 @@ CHANGES
 1.5.0 (unreleased)
 ------------------
 
-- Honot the ``_pj_remove_documents`` flag in the pjpersist
-  ``ImmutableContainer``. This way deletions can be undone. Also, audit logs
-  can now be complete.
+- Honor the ``_pj_remove_documents`` flag in the pjpersist
+  ``ImmutableContainer`` by simply marking the last version of the object as
+  retired and assigning an end date. This way deletions can be undone. Also,
+  audit logs can now be complete.
+
+- Allow the creator and comment to be specified globally, so that APIs don't
+  have to carry that information through all the layers.
 
 
 1.4.3 (2020-02-22)
