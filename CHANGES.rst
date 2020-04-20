@@ -3,7 +3,7 @@ CHANGES
 =======
 
 
-1.5.0 (unreleased)
+1.5.0 (2020-04-20)
 ------------------
 
 - Honor the ``_pj_remove_documents`` flag in the pjpersist
