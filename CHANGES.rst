@@ -3,7 +3,7 @@ CHANGES
 =======
 
 
-2.0.0 (unreleased)
+2.0.0 (2020-04-21)
 ------------------
 
 - IMPORTANT: Add immutable state as a column to the table. This will require a
