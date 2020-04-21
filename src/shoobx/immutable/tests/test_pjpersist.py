@@ -145,6 +145,7 @@ class ImmutableTest(unittest.TestCase):
                 'version': 0,
                 'startOn': datetime.datetime(2019, 5, 29, 2, 0),
                 'endOn': datetime.datetime(2019, 5, 29, 3, 0),
+                'state': 'transient',
                 'creator': 'universe',
                 'comment': 'Give answer.',
             }
@@ -202,7 +203,8 @@ class ImmutableContainerTest(unittest.TestCase):
         self.assertEqual(
             pjpersist.ImmutableContainer._pj_column_fields,
             ('id', 'data',
-             'name', 'version', 'startOn', 'endOn', 'creator', 'comment'))
+             'name', 'version', 'state', 'startOn', 'endOn',
+             'creator', 'comment'))
 
         self.assertEqual(
             pjpersist.ImmutableContainer._pj_mapping_key,
@@ -216,6 +218,14 @@ class ImmutableContainerTest(unittest.TestCase):
         self.assertEqual(
             flt.__sqlrepr__('postgres'),
             "((table.endOn) IS NULL)"
+        )
+
+    def test_pj_get_resolve_filter_withDeletedItems(self):
+        self.cont._pj_with_deleted_items = True
+        flt = self.cont._pj_get_resolve_filter()
+        self.assertEqual(
+            flt.__sqlrepr__('postgres'),
+            "(((table.endOn) IS NULL) OR ((table.state) = ('deleted')))"
         )
 
     def test_load_one(self):
@@ -469,6 +479,13 @@ class ImmutableDatabaseTest(testing.PJTestCase):
         self.assertEqual(q2.__im_state__, interfaces.IM_STATE_TRANSIENT)
         self.assertIsNone(q2.__im_end_on__)
 
+    def test_withDeletedItems(self):
+        questions = self.questions.withDeletedItems()
+        # We create a clone. That's by design to not modify the priginal
+        # container and to reset the cache properly.
+        self.assertIsNot(questions, self.questions)
+        self.assertEqual(questions._pj_with_deleted_items, True)
+
     def test_setitem(self):
         self.dm._ensure_sql_columns(Question(), 'questions')
         with Question.__im_create__() as factory:
@@ -622,12 +639,15 @@ class ImmutableDatabaseTest(testing.PJTestCase):
 
         # Let's check the DB table again. We should still have 2 rows, but all
         # of them should have an end date and be in th eretired state.
-        cur.execute("SELECT * FROM questions")
+        cur.execute("SELECT * FROM questions ORDER BY endon")
         result = list(cur.fetchall())
         self.assertEqual(len(result), 2)
-        for q1_ver in result:
-            self.assertIsNotNone(q1_ver['endon'])
-            self.assertEqual(q1_ver['data']['__im_state__'], 'retired')
+        self.assertEqual(
+            result[0]['data']['__im_state__'], interfaces.IM_STATE_RETIRED)
+        self.assertIsNotNone(
+            result[1]['endon'])
+        self.assertEqual(
+            result[1]['data']['__im_state__'], interfaces.IM_STATE_DELETED)
 
     def test_functional(self):
         with Question.__im_create__() as factory:
@@ -674,3 +694,30 @@ class ImmutableDatabaseTest(testing.PJTestCase):
         rev1, = revs
         self.assertIsNone(rev1.__im_end_on__)
         self.assertEqual(rev1._p_oid.id, q._p_oid.id)
+
+    def test_functional_deletionAndRevival(self):
+        # This test demonstrates how an object can be deleted and be revived
+        # in no-document-removal mode of the container.
+        questions = NoRemovalQuestions()
+        with Question.__im_create__() as factory:
+            q = factory('What is the answer')
+        questions.add(q)
+        qname = q.__name__
+        self.assertEqual(len(questions), 1)
+        del questions[qname]
+        self.assertEqual(len(questions), 0)
+        self.assertNotIn(qname, questions)
+
+        # Now we switch the container to return deleted items as well.
+        historical = questions.withDeletedItems()
+        self.assertEqual(len(historical), 1)
+        self.assertIn(qname, historical)
+        dq = historical[qname]
+        self.assertEqual(dq.__im_state__, interfaces.IM_STATE_DELETED)
+        # We can even revert the deletion, which effectively revives it.
+        historical.rollbackToRevision(dq, activate=True)
+        dq = historical[qname]
+        self.assertEqual(dq.__im_state__, interfaces.IM_STATE_LOCKED)
+        # And it is available in the regualr container as well.
+        self.assertEqual(len(questions), 1)
+        self.assertIn(qname, questions)

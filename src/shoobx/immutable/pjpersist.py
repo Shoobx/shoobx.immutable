@@ -47,6 +47,7 @@ class Immutable(revisioned.RevisionedImmutable, pjcontainer.PJContained):
     _pj_column_fields = (
         zope.schema.TextLine(__name__=_pj_name),
         Version(__name__='version'),
+        zope.schema.Text(__name__='state'),
         zope.schema.Datetime(__name__='startOn'),
         zope.schema.Datetime(__name__='endOn'),
         zope.schema.TextLine(__name__='creator'),
@@ -75,6 +76,7 @@ class Immutable(revisioned.RevisionedImmutable, pjcontainer.PJContained):
             'version': self.__im_version__,
             'startOn': self.__im_start_on__,
             'endOn': self.__im_end_on__,
+            'state': self.__im_state__,
             'creator': self.__im_creator__,
             'comment': self.__im_comment__,
         }
@@ -105,6 +107,9 @@ class ImmutableContainer(pjcontainer.AllItemsPJContainer):
     _pj_column_fields = pjcontainer.AllItemsPJContainer._pj_column_fields + (
         tuple([fld.__name__ for fld in Immutable._pj_column_fields]))
 
+    # When true, the container APIs will include deleted items.
+    _pj_with_deleted_items = False
+
     # Testing hook.
     now = datetime.datetime.now
 
@@ -121,7 +126,11 @@ class ImmutableContainer(pjcontainer.AllItemsPJContainer):
         # Return a filter that matches ONLY the current version.
         qry = self._pj_get_resolve_filter_all_versions()
         endOnFld = sb.Field(self._pj_table, 'endOn')
-        return self._combine_filters(qry, endOnFld == None)  # noqa E711
+        lastVersionQry = (endOnFld == None)  # noqa E711
+        if self._pj_with_deleted_items:
+            stateFld = sb.Field(self._pj_table, 'state')
+            lastVersionQry |= (stateFld == interfaces.IM_STATE_DELETED)
+        return self._combine_filters(qry, lastVersionQry)
 
     def _load_one(self, id, doc, use_cache=True):
         obj = super()._load_one(id, doc, use_cache=use_cache)
@@ -241,6 +250,12 @@ class ImmutableContainer(pjcontainer.AllItemsPJContainer):
         self._pj_jar.register(new)
         self._cache[new.__name__] = new
 
+    def withDeletedItems(self):
+        clone = self.__class__.__new__(self.__class__)
+        clone.__dict__.update(self.__dict__)
+        clone._pj_with_deleted_items = True
+        return clone
+
     def __setitem__(self, key, value):
         assert value.__im_state__ == interfaces.IM_STATE_LOCKED, \
                value.__im_state__
@@ -249,7 +264,7 @@ class ImmutableContainer(pjcontainer.AllItemsPJContainer):
     def __delitem__(self, key):
         value = self[key]
         value.__im_end_on__ = self.now()
-        value.__im_state__ = interfaces.IM_STATE_RETIRED
+        value.__im_state__ = interfaces.IM_STATE_DELETED
         self._pj_jar.register(value)
         if self._pj_remove_documents:
             # We need to make sure that all revisions get deleted.

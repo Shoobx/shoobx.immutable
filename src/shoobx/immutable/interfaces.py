@@ -4,7 +4,6 @@
 #
 ###############################################################################
 """Immutable Interfaces."""
-
 import datetime
 import decimal
 
@@ -22,7 +21,9 @@ IM_STATE_TRANSIENT = 'transient'
 IM_STATES = (IM_STATE_LOCKED, IM_STATE_TRANSIENT)
 
 IM_STATE_RETIRED = 'retired'
-IM_STATES_REVISIONED = (IM_STATE_LOCKED, IM_STATE_TRANSIENT, IM_STATE_RETIRED)
+IM_STATE_DELETED = 'deleted'
+IM_STATES_REVISIONED = (
+    IM_STATE_LOCKED, IM_STATE_TRANSIENT, IM_STATE_RETIRED, IM_STATE_DELETED)
 
 IMMUTABLE_TYPES = (
     bool, int, float, complex, decimal.Decimal, tuple, str, bytes, type(None),

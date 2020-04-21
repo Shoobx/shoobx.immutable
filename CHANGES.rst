@@ -3,10 +3,23 @@ CHANGES
 =======
 
 
-1.5.1 (unreleased)
+2.0.0 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- IMPORTANT: Add immutable state as a column to the table. This will require a
+  migration of your database schema and data.
+
+- Introduced new ``IM_STATE_DELETED`` state which marks an object as deleted.
+
+- Add new ``_pj_with_deleted_items`` flag that when set will change the
+  container API to return deleted items as well.
+
+- Added ``ImmutableContainer.withDeletedItems()`` method that will clone the
+  container and set the ``_pj_with_deleted_items`` flag. That will by
+  definition reset all caches to prohibit inconsistent results.
+
+- The ``test_functional_deletionAndRevival()`` demonstrates the deletion and
+  revivial functionality.
 
 
 1.5.0 (2020-04-20)
@@ -36,7 +49,7 @@ CHANGES
 1.4.2 (2020-02-15)
 ------------------
 
-- 1.4.1 was a brown bag
+- 1.4.1 was a brown bag release.
 
 
 1.4.1 (2020-02-15)
