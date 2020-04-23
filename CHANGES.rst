@@ -3,7 +3,7 @@ CHANGES
 =======
 
 
-2.0.1 (unreleased)
+2.0.1 (2020-04-23)
 ------------------
 
 - Allow ``defaultInfo()`` decorator to be nested.
