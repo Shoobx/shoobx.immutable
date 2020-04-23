@@ -23,13 +23,15 @@ DEFAULT_REVISION_INFO = DefaultRevisionInfo()
 
 @contextmanager
 def defaultInfo(creator=None, comment=None):
+    origCreator = DEFAULT_REVISION_INFO.creator
     DEFAULT_REVISION_INFO.creator = creator
+    origComment = DEFAULT_REVISION_INFO.comment
     DEFAULT_REVISION_INFO.comment = comment
     try:
         yield DEFAULT_REVISION_INFO
     finally:
-        DEFAULT_REVISION_INFO.creator = None
-        DEFAULT_REVISION_INFO.comment = None
+        DEFAULT_REVISION_INFO.creator = origCreator
+        DEFAULT_REVISION_INFO.comment = origComment
 
 
 @zope.interface.implementer(interfaces.IRevisionedImmutable)

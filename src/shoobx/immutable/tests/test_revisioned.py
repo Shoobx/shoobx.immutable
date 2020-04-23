@@ -41,6 +41,18 @@ class DefaultRevisionInfoTest(unittest.TestCase):
         self.assertEqual(revisioned.DEFAULT_REVISION_INFO.creator, None)
         self.assertEqual(revisioned.DEFAULT_REVISION_INFO.comment, None)
 
+    def test_defaultInfo_nested(self):
+        with revisioned.defaultInfo('arthur', 'question') as info:
+            self.assertEqual(info.creator, 'arthur')
+            self.assertEqual(info.comment, 'question')
+
+            with revisioned.defaultInfo('computer', 'answer') as info:
+                self.assertEqual(info.creator, 'computer')
+                self.assertEqual(info.comment, 'answer')
+
+            self.assertEqual(info.creator, 'arthur')
+            self.assertEqual(info.comment, 'question')
+
 
 class RevisionedImmutableBaseTest(unittest.TestCase):
 
