@@ -28,6 +28,26 @@ class ImmutableHelpersTest(unittest.TestCase):
             im2.answer = 42
         self.assertIsNot(im, im2)
 
+    def test_update_double(self):
+        with immutable.ImmutableBase.__im_create__() as factory:
+            im = factory()
+        with immutable.update(im) as im2:
+            im2.answer = 42
+            with immutable.update(im2) as im3:
+                im3.answer = 84
+
+            im3.answer = 100
+            im2.answer = 99
+
+        self.assertEqual(im2.answer, 99)
+        self.assertEqual(im3.answer, 99)
+        self.assertIsNot(im, im2)
+        self.assertIsNot(im, im3)
+        self.assertIs(im2, im3)
+        self.assertEqual(im.__im_state__, interfaces.IM_STATE_LOCKED)
+        self.assertEqual(im2.__im_state__, interfaces.IM_STATE_LOCKED)
+        self.assertEqual(im3.__im_state__, interfaces.IM_STATE_LOCKED)
+
     def test_failOnNonTransient(self):
         func = mock.Mock()
         wrapper = immutable.failOnNonTransient(func)
