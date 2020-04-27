@@ -6,7 +6,8 @@ CHANGES
 2.0.2 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Added `enum.Enum` as immutable type / constant. This allows assigning an
+  Enum to a `ImmutableBase` attribute.
 
 
 2.0.1 (2020-04-23)

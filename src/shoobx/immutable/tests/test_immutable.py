@@ -8,9 +8,16 @@
 import datetime
 import mock
 import unittest
+from enum import Enum
 from zope.interface import verify
 
 from shoobx.immutable import immutable, interfaces
+
+
+class Colors(Enum):
+    RED = 1
+    BLUE = 2
+    GREEN = 3
 
 
 class ImmutableHelpersTest(unittest.TestCase):
@@ -432,6 +439,11 @@ class ImmutableBaseTest(unittest.TestCase):
             im = factory()
         im.__answer__ = 42
         self.assertEqual(im.__answer__, 42)
+
+    def test_setattr_enum(self):
+        im = immutable.ImmutableBase()
+        im.color = Colors.BLUE
+        self.assertEqual(im.color, Colors.BLUE)
 
 
 class ImmutableTest(unittest.TestCase):

@@ -6,6 +6,7 @@
 """Immutable Interfaces."""
 import datetime
 import decimal
+from enum import Enum
 
 import zope.interface
 import zope.lifecycleevent
@@ -29,6 +30,7 @@ IMMUTABLE_TYPES = (
     bool, int, float, complex, decimal.Decimal, tuple, str, bytes, type(None),
     datetime.date, datetime.time, datetime.datetime, datetime.timedelta,
     datetime.tzinfo,
+    Enum
 )
 
 LIST_TYPES = (
