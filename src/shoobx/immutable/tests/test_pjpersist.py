@@ -9,6 +9,7 @@ import datetime
 import mock
 import pjpersist.interfaces as pjinterfaces
 import pjpersist.sqlbuilder as sb
+import psycopg2
 import transaction
 import unittest
 import zope.component
@@ -186,9 +187,11 @@ class ImmutableTest(unittest.TestCase):
 class ImmutableContainerTest(unittest.TestCase):
 
     def setUp(self):
-        self.conn = mock.MagicMock(
-            dsn='postgresql://localhost/db')
-        self.dm = datamanager.PJDataManager(self.conn)
+        conn = mock.MagicMock(
+            dsn='postgresql://localhost/db',
+            status=psycopg2.extensions.STATUS_READY)
+        pool = testing.DummyConnectionPool(conn)
+        self.dm = datamanager.PJDataManager(pool)
         self.cont = pjpersist.ImmutableContainer()
         self.cont._p_jar = self.dm
         self.cont._pj_table = 'table'
