@@ -157,6 +157,10 @@ class ImmutableBase:
 
     @contextmanager
     def __im_update__(self, *args, **kw):
+        # Make sure we don't update an outdated object again
+        assert self.__im_state__ not in interfaces.IM_STATES_OUTDATED,\
+            "Cannot update an outdated object."
+
         # Only a master immutable can be updated directly.
         if self.__im_mode__ != interfaces.IM_MODE_MASTER:
             raise AttributeError(
