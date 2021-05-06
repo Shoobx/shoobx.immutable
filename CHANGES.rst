@@ -6,7 +6,7 @@ CHANGES
 2.0.3 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Make sure we can not update an outdated object again in `__im_update__`
 
 
 2.0.2 (2020-04-27)
