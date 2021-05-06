@@ -3,7 +3,7 @@ CHANGES
 =======
 
 
-2.0.3 (unreleased)
+2.0.3 (2021-05-06)
 ------------------
 
 - Make sure we can not update an outdated object again in `__im_update__`
