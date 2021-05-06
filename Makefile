@@ -1,9 +1,13 @@
-PYTHON = python3
+PYTHON = python3.7
 
 all: ve/bin/zope-testrunner
 
 ve:
-	virtualenv -p $(PYTHON) ve
+	set -e; \
+	  $(PYTHON) -m venv ve; \
+	  ve/bin/pip install --upgrade setuptools; \
+	  ve/bin/pip install --upgrade wheel
+
 	ve/bin/pip install -e .[test]
 
 ve/bin/zope-testrunner: | ve
