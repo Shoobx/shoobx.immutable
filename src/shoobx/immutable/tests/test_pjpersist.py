@@ -724,3 +724,18 @@ class ImmutableDatabaseTest(testing.PJTestCase):
         # And it is available in the regualr container as well.
         self.assertEqual(len(questions), 1)
         self.assertIn(qname, questions)
+
+    def test_no_double_update(self):
+        with Question.__im_create__() as factory:
+            q = factory('What is the answer')
+        self.questions.add(q)
+
+        with q.__im_update__() as q2:
+            q2.answer = 42
+
+        # second call to __im_update__ of the original object
+        with self.assertRaises(AssertionError):
+            with q.__im_update__() as q3:
+                q3.answer = 43
+
+        transaction.commit()

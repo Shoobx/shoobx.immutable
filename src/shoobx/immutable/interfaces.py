@@ -25,6 +25,7 @@ IM_STATE_RETIRED = 'retired'
 IM_STATE_DELETED = 'deleted'
 IM_STATES_REVISIONED = (
     IM_STATE_LOCKED, IM_STATE_TRANSIENT, IM_STATE_RETIRED, IM_STATE_DELETED)
+IM_STATES_OUTDATED = (IM_STATE_DELETED, IM_STATE_RETIRED)
 
 IMMUTABLE_TYPES = (
     bool, int, float, complex, decimal.Decimal, tuple, str, bytes, type(None),
@@ -411,7 +412,7 @@ class IRevisionedImmutable(IImmutable):
         If the immutable is already in the `transient` state, then the object
         itself is returned. All arguments to the method are ignored.
 
-        If a clone is created, then the `__im_creator__` and `__im_commnet__`
+        If a clone is created, then the `__im_creator__` and `__im_comment__`
         attributes will be set.
 
         If `__im_manager__` is set,
