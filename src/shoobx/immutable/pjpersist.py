@@ -28,7 +28,7 @@ class NoOpProperty:
 
 
 class Version(zope.schema.Int):
-    # Unfortuantely, default Int._type is a tuple.
+    # Unfortunately, default Int._type is a tuple.
     _type = int
 
 
