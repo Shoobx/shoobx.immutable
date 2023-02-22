@@ -2,8 +2,8 @@
 ``shoobx.immutable`` -- Immutable Types
 =======================================
 
-.. image:: https://travis-ci.org/Shoobx/shoobx.immutable.png?branch=master
-   :target: https://travis-ci.org/Shoobx/shoobx.immutable
+.. image:: https://github.com/Shoobx/shoobx.immutable/actions/workflows/test.yml/badge.svg
+   :target: https://github.com/Shoobx/shoobx.immutable/actions
 
 .. image:: https://coveralls.io/repos/github/Shoobx/shoobx.immutable/badge.svg?branch=master
    :target: https://coveralls.io/github/Shoobx/shoobx.immutable?branch=master

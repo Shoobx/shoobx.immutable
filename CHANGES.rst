@@ -6,7 +6,9 @@ CHANGES
 2.0.4 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Moving CI to github actions
+
+- Added python 3.8, 3.9, 3.10, 3.11
 
 
 2.0.3 (2021-05-06)
