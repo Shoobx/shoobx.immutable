@@ -1,4 +1,4 @@
 [run]
 include = */shoobx/immutable/*
 omit = */test*
-
+relative_files = True
